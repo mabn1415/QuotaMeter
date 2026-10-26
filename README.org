@@ -8,9 +8,6 @@ QuotaMeter は，ChatGPT の日本語の「使用状況」画面から，5 時�
 
 Swift の画面と Node.js / Playwright による Chrome 操作を組み合わせています．OpenAI API キーは使用せず，トークン数・API 料金・購入クレジットの残高は計測しません．
 
-** 名称
-QuotaMeter と QuotaBar を比較し，利用枠を確認する用途が伝わる QuotaMeter を採用しました．旧名称は AllowanceMonitor です．同名製品や商標の網羅的な調査は未実施です．
-
 * 主な機能
  - メニューバーに 5 時間枠の残量を表示し，詳細画面で週間枠・履歴・概算リセット時刻を確認
  - 標準 3 分間隔で更新し，設定で 1・2・3・5 分から選択
@@ -27,10 +24,10 @@ QuotaMeter と QuotaBar を比較し，利用枠を確認する用途が伝わ�
 Finder 起動時の Node.js 検索先は =/opt/homebrew/bin/node=，=/usr/local/bin/node=，=/usr/bin/node= です．nvm などでのみ導入した Node.js は自動検出されません．
 
 * ビルド・インストール
-ソースを展開したフォルダで実行します．旧アプリを使用中の場合は，次節の切り替え手順を先に確認してください．
+プロジェクトフォルダで次を実行します．更新時はアプリと専用 Chrome を終了してください．
 
 #+begin_src sh
-cd /path/to/QuotaMeter
+cd ~/Documents/QuotaMeter
 ./scripts/install-deps.sh
 ./scripts/build-app.sh
 ./scripts/install-app.sh
@@ -38,25 +35,33 @@ cd /path/to/QuotaMeter
 
 =install-deps.sh= は lockfile に従って依存を導入し，JavaScript テストを実行します．=build-app.sh= は =dist/QuotaMeter.app= を作成し，アドホック署名を検証します．=install-app.sh= は =~/Applications/QuotaMeter.app= に配置して起動します．Node.js 本体と Chrome は同梱しません．
 
-** AllowanceMonitor v3.0 から切り替える
- 1. 旧アプリの「Mac ログイン時に自動起動」を OFF にし，旧アプリと専用 Chrome を終了
- 2. 必要に応じて，後述のデータフォルダを安全なローカルの場所へバックアップ
- 3. 新版フォルダで =./scripts/install-app.sh= を実行し，残量・履歴・取得時刻を確認
- 4. 必要なら新版でログイン時の自動起動を ON にする
-
-Chrome プロファイルと履歴は旧保存先をそのまま使い，移動・複製しません．更新間隔・表示設定・初回案内の完了状態は，旧設定から初回のみ取り込みます．ログイン項目と OS の許可は自動移行しません．
-
-インストーラは新旧アプリの実行中に停止します．既存の QuotaMeter は =~/Applications/QuotaMeter.app.previous= に退避し，その退避先が既にある場合も停止します．旧アプリと実データは削除しません．新旧アプリや手動収集を同時に実行しないでください．
-
-* 初回設定・通常起動
+* 初回設定
  1. アプリの初回案内で「設定を完了して開始」を選択
  2. メニューバー →「詳細・設定」→「Chrome で初期設定・再ログイン」を選択
  3. 専用 Chrome で ChatGPT にログインし，設定 → 使用状況で両方の利用枠を表示
  4. 最大約 5 分以内に検出され，メニューバーに残量と取得時刻が表示されることを確認
 
-以後は Finder で =~/Applications/QuotaMeter.app= をダブルクリックします．通常はターミナル不要です．手動更新は「今すぐ更新」，終了は「詳細・設定」→「終了」から行います．自動起動は詳細画面で設定し，必要なら macOS のログイン項目でも承認します．
-
 通常の Chrome とは別プロファイルのため，初回ログインが必要です．Chrome の最小化には CDP を使い，この実装はアクセシビリティ権限を要求しません．
+
+* 起動・終了
+インストール完了時は自動で起動します．次回以降は，Finder の「移動」→「フォルダへ移動」で次の場所を開き，=QuotaMeter.app= をダブルクリックしてください．
+
+#+begin_example
+~/Applications/
+#+end_example
+
+ターミナルから起動する場合は，次を実行します．
+
+#+begin_src sh
+open "$HOME/Applications/QuotaMeter.app"
+#+end_src
+
+ - 起動後はメニューバーに残量ゲージを表示．Dock に通常のウィンドウは表示しない
+ - ゲージ →「詳細・設定」で履歴や設定を開き，「今すぐ更新」で手動取得
+ - 終了は「詳細・設定」→「終了」から操作
+ - 自動起動は「詳細・設定」の「Mac ログイン時に自動起動」を ON にし，必要なら macOS のログイン項目でも承認
+
+通常利用ではターミナルは不要です．プロジェクトの編集先は =~/Documents/QuotaMeter=，インストールしたアプリの場所は =~/Applications/QuotaMeter.app= です．
 
 * 実装フロー
 #+begin_example
@@ -71,7 +76,7 @@ Finder / ログイン項目
 Swift は 15 秒ごとに応答と更新時期を確認します．Chrome は通常表示で起動後に最小化し，失敗時には復元・再接続を試みます．内部・非公開 API や，アプリ独自の HTTP サーバーは使いません．取得に失敗した場合は，最後の正常値と取得時刻を保持します．
 
 * 保存先
-名称変更後も，次の場所を継続使用します．
+アプリのデータは次の場所に保存します．
 
 #+begin_example
 ~/Library/Application Support/AllowanceMonitor/
@@ -85,7 +90,7 @@ Swift は 15 秒ごとに応答と更新時期を確認します．Chrome は通
 | collector-diagnostics.json | 最後の診断結果 |
 | worker-*.json / quotameter.lock | ワーカーとの連携・新版の二重起動防止 |
 
-表示設定は UserDefaults の =local.quotameter.app= ドメインで管理し，旧ドメイン =dev.allowance.monitor= は削除しません．履歴の自動削除はありません．不要な =history.jsonl= はアプリと専用 Chrome の終了後に削除できます．
+表示設定は UserDefaults の =local.quotameter.app= ドメインで管理します．履歴の自動削除はありません．不要な =history.jsonl= はアプリと専用 Chrome の終了後に削除できます．
 
 * セキュリティ・プライバシー
  - 専用 Chrome はログイン済みアカウントを操作できるため，ソースと依存を信頼できる場合だけ実行
@@ -96,10 +101,10 @@ Swift は 15 秒ごとに応答と更新時期を確認します．Chrome は通
  - 生のページ本文やスクリーンショットを収集結果として保存しないが，Chrome 自身は認証・閲覧情報を保存
  - アプリ独自の暗号化や App Sandbox による隔離はなく，FileVault や画面ロックも併用
 
-アプリの削除だけでは実データは消えません．使用をやめる場合は自動起動を OFF にして終了後，必要に応じて保存先・設定・機密バックアップを削除してください．保存先を削除すると，旧アプリのログイン状態と履歴も失われます．
+アプリの削除だけでは実データは消えません．使用をやめる場合は自動起動を OFF にして終了後，必要に応じて保存先・設定・機密バックアップを削除してください．保存先を削除すると，ログイン状態と履歴も失われます．
 
 * 利用規約・公開時の注意
-表示テキストの自動取得には，OpenAI の利用規約にある自動・プログラムによるデータ抽出の禁止条項に関する懸念があります．適用契約と許諾を確認できない場合は，自動取得の使用・配布を保留してください．名称変更や低頻度の取得によって規約適合が保証されるわけではありません．
+表示テキストの自動取得には，OpenAI の利用規約にある自動・プログラムによるデータ抽出の禁止条項に関する懸念があります．適用契約と許諾を確認できない場合は，自動取得の使用・配布を保留してください．低頻度の取得によって規約適合が保証されるわけではありません．
 
  - [[https://openai.com/policies/terms-of-use/][OpenAI Terms of Use]]
  - [[https://openai.com/policies/][OpenAI Terms & Policies]]
@@ -127,12 +132,12 @@ node scripts/audit-source.mjs --list
 | Node.js が見つからない | 「必要環境」に記載した検索先を確認 |
 | 取得モジュールが見つからない | 依存導入後に再ビルド・再インストール |
 | CHROME_LAUNCH_FAILED | Google Chrome のインストールと通常起動を確認 |
-| PROFILE_BUSY | 旧アプリ・手動収集・専用 Chrome を終了して待つ．使用中にロックファイルを削除しない |
+| PROFILE_BUSY | 同じプロファイルを使うアプリ・手動収集・専用 Chrome を終了して待つ．使用中にロックファイルを削除しない |
 | LOGIN_REQUIRED | 詳細画面から専用 Chrome で再ログイン |
 | USAGE_NOT_FOUND | 日本語の使用状況画面で両枠を表示し，画面構成の変更も確認 |
 | タイムアウト・古い値・! 表示 | 接続・ログイン・最終取得時刻を確認し，再更新 |
-| 旧版が自動起動する | 旧ログイン項目を OFF にし，新版で改めて登録 |
-| インストールが停止する | 新旧アプリの実行状態と既存の .previous を確認 |
+| 自動起動しない | 詳細画面の自動起動設定と macOS のログイン項目の承認を確認 |
+| インストールが停止する | アプリの実行状態と既存の QuotaMeter.app.previous を確認 |
 
 問い合わせには理由コードと操作手順を添え，プロファイルや設定・履歴全体を添付しないでください．
 
