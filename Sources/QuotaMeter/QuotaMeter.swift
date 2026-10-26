@@ -70,7 +70,7 @@ enum Storage {
         }
         pathMonitor.start(queue: pathQueue)
         timer = Timer.scheduledTimer(withTimeInterval: 15, repeats: true) { [weak self] _ in
-            Task { @MainActor in
+            Task { @MainActor [weak self] in
                 guard let self else { return }
                 self.now = Date()
                 self.load()
