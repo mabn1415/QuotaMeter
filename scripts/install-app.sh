@@ -30,6 +30,5 @@ if ! mv "$STAGING/QuotaMeter.app" "$TARGET"; then
   exit 1
 fi
 echo "インストール完了: $TARGET"
-echo '旧アプリとデータは削除していません。旧ログイン項目を無効にしてから使用してください。'
 echo 'Finder → ホーム → Applications → QuotaMeter.app から起動できます。'
 open "$TARGET"
