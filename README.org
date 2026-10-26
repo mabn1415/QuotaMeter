@@ -17,14 +17,22 @@ Swift の画面と Node.js / Playwright による Chrome 操作を組み合わ�
 
 * 必要環境
  - macOS 14 以降と，ビルド対象に対応する Mac
- - Swift 5.9 以降を含む Xcode を推奨．Command Line Tools だけでビルドできる環境もありますが，組み合わせによっては SwiftUI マクロを読み込めない場合がある
+ - Swift 5.9 以降を含む Command Line Tools または Xcode
  - Node.js 20 以降，npm，Google Chrome
  - 日本語の使用状況画面に両方の利用枠を表示できる ChatGPT アカウントとネット接続
 
 Finder 起動時の Node.js 検索先は =/opt/homebrew/bin/node=，=/usr/local/bin/node=，=/usr/bin/node= です．nvm などでのみ導入した Node.js は自動検出されません．
 
 * ビルド・インストール
-プロジェクトフォルダで次を実行します．更新時はアプリと専用 Chrome を終了してください．
+初回はプロジェクトフォルダで次を実行します．環境確認，依存導入，ビルド，インストールを順番に行います．
+
+#+begin_src sh
+./scripts/setup.sh
+#+end_src
+
+Apple の開発ツールがない場合は，スクリプトに表示される =xcode-select --install= を実行し，画面の案内に従って Command Line Tools を導入してください．Xcode 本体は通常不要です．Xcode がインストール済みの場合は，ビルド時に自動検出して使用します．Apple Developer Program への加入は不要です．
+
+個別に実行する場合や更新時は，アプリと専用 Chrome を終了してから次を実行します．
 
 #+begin_src sh
 ./scripts/install-deps.sh
@@ -132,7 +140,7 @@ node scripts/audit-source.mjs --list
 
 | 症状 | 対処 |
 |------+------|
-| SwiftUIMacros が見つからない | Xcode をインストールし，=xcode-select -p= が Xcode 内の =Contents/Developer= を示すことを確認して再ビルド |
+| SwiftUIMacros が見つからない | macOS の「システム設定」→「一般」→「ソフトウェアアップデート」で Command Line Tools を更新して再試行．解消しない場合は Xcode をインストール |
 | Node.js が見つからない | 「必要環境」に記載した検索先を確認 |
 | 取得モジュールが見つからない | 依存導入後に再ビルド・再インストール |
 | CHROME_LAUNCH_FAILED | Google Chrome のインストールと通常起動を確認 |

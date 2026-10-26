@@ -21,6 +21,14 @@ if [ -z "$DEVELOPER_DIR_PATH" ]; then
   echo '開発ツールが選択されていません。Xcode のインストールと xcode-select の状態を確認してください。' >&2
   exit 1
 fi
+
+# Prefer an installed full Xcode for this build without changing the user's
+# system-wide xcode-select setting. Command Line Tools remain supported.
+if [[ "$DEVELOPER_DIR_PATH" == "/Library/Developer/CommandLineTools" ]] && \
+   [ -d "/Applications/Xcode.app/Contents/Developer" ]; then
+  export DEVELOPER_DIR="/Applications/Xcode.app/Contents/Developer"
+  DEVELOPER_DIR_PATH="$DEVELOPER_DIR"
+fi
 echo "開発ツール: $DEVELOPER_DIR_PATH"
 swift --version | head -n 1
 
@@ -28,7 +36,7 @@ swift --version | head -n 1
 rm -rf "$ROOT/dist/QuotaMeter.app"
 if ! swift build -c release; then
   echo 'QuotaMeter のビルドに失敗しました。dist/QuotaMeter.app は作成していません。' >&2
-  echo 'SwiftUIMacros のエラーが出る場合は、Xcode のインストールと xcode-select -p の結果を確認してください。' >&2
+  echo 'SwiftUIMacros のエラーが出る場合は、macOS のソフトウェアアップデートで Command Line Tools を更新するか、Xcode をインストールしてください。' >&2
   exit 1
 fi
 BIN_DIR="$(swift build -c release --show-bin-path)"

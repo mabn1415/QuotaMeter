@@ -20,6 +20,7 @@
 - 起動時に案内・詳細画面を表示し，画面内の 3 手順だけで初回設定を進められるように変更．ログイン中は Chrome の上に「ログイン完了」パネルを表示．
 - CDP 操作に不要だったアクセシビリティ設定の案内を削除．
 - lockfileを使うnpm ci、空の作業場所からの.app組立、署名検証、インストール前の退避処理を整備。
+- =setup.sh= に環境確認，依存導入，ビルド，インストールをまとめた．Xcode が導入済みで Command Line Tools が選択されている場合も，システム設定を変えずビルド時だけ Xcode を使用．
 - README.org、.gitignore、共有用ソース許可リストと検査スクリプトを整備。
 
 * 検証環境
@@ -38,6 +39,7 @@
 | Swiftテスト | XCTest 2件成功。既知キー取り込み、未設定のみ移行、一度だけ実行、不明キー拒否、新規導入、旧保存先維持 |
 | Releaseビルド | 成功。dist/QuotaMeter.appを生成。Mach-O arm64 |
 | Command Line Tools単体のReleaseビルド | 隔離した新規ビルド領域で成功。環境の組み合わせによるSwiftUIマクロエラーまでは否定できない |
+| 環境確認 | macOS，Swift 5.9 以降，Node.js 20 以降，npm，Google Chrome の検出に成功 |
 | Chrome サンドボックス | 一時プロファイルで =chromiumSandbox: true= の通常表示・ヘッドレス起動に成功．既存プロファイルでの自動取得は利用者環境で動作を確認 |
 | Info.plist検査 | 表示名，実行ファイル名，Bundle Identifier，version 3.3 の一致を確認 |
 | アプリ資材検査 | 必要モジュール・依存の存在を確認。プロファイル/Cookies/履歴/config/usageを含まないことをファイル名で確認 |
