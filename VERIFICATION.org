@@ -1,9 +1,9 @@
-#+TITLE: QuotaMeter v3.4 変更・検証記録
+#+TITLE: QuotaMeter v3.5 変更・検証記録
 #+LANGUAGE: ja
 #+OPTIONS: toc:2 num:nil
 
 * 対象と作業範囲
-- 対象: =~/Documents/QuotaMeter= の QuotaMeter v3.4．
+- 対象: =~/Documents/QuotaMeter= の QuotaMeter v3.5．
 - GitHubのPublicリポジトリは作成済み。GPL-3.0-onlyで公開中。
 - Xcode導入後にインストールできたこと、ChatGPT側のログイン方法で認証できたことは利用者報告。実アカウントの内容は検証作業では読み取っていない。
 - 通常の Chrome を使う方式で Google 経由のログインと，自動取得への切り替えに成功したことは利用者報告．
@@ -11,7 +11,7 @@
 
 * 主な変更
 - Swift Package、ターゲット、ソース名、アプリ表示、実行ファイル、Info.plist、インストール先をQuotaMeterに統一。
-- Bundle Identifier は =local.quotameter.app= ．バージョンは 3.4 / build 34．
+- Bundle Identifier は =local.quotameter.app= ．バージョンは 3.5 / build 35．
 - 保存先は =Application Support/AllowanceMonitor= のまま維持。Chromeプロファイル・利用履歴を複製せず再利用する設計。
 - 旧UserDefaultsの3キーのみを一度だけ取り込む。新しい設定は上書きしない。旧ドメインは削除しない。
 - 新版起動時の旧アプリ検出、新版同士のファイルロック、インストーラの実行中確認を追加。
@@ -24,6 +24,7 @@
 - Timer から起動する =Task= に =[weak self]= を明示し，Swift 5.10 の並行処理チェックによる Release ビルド停止を修正．
 - 5 時間枠・週間枠の残量が 50・20・15・10・5・0％ に達した時と，リセット時の macOS 通知を追加．
 - 任意設定として ntfy 経由の iPhone 通知，通知先の自動作成，テスト通知を追加．
+- QuotaMeter の残量ゲージを表したアプリアイコン，通知先のコピー，ntfy の受付結果表示を追加．
 - README.org、.gitignore、共有用ソース許可リストと検査スクリプトを整備。
 
 * 検証環境
@@ -45,12 +46,13 @@
 | Swift 5.10 Release ビルド | Command Line Tools を明示した新規ビルド領域で成功．Timer 内の =Task= 修正を確認 |
 | 環境確認 | macOS，Swift 5.9 以降，Node.js 20 以降，npm，Google Chrome の検出に成功 |
 | Chrome サンドボックス | 一時プロファイルで =chromiumSandbox: true= の通常表示・ヘッドレス起動に成功．既存プロファイルでの自動取得は利用者環境で動作を確認 |
-| Info.plist検査 | 表示名，実行ファイル名，Bundle Identifier，version 3.4 の一致を確認 |
+| Info.plist検査 | 表示名，実行ファイル名，Bundle Identifier，version 3.5 の一致を確認 |
 | アプリ資材検査 | 必要モジュール・依存の存在を確認。プロファイル/Cookies/履歴/config/usageを含まないことをファイル名で確認 |
 | 署名検証 | codesign --verify --deep --strict 成功。アドホック署名であり身元証明・公証ではない |
 | 構文確認 | 3本のシェルスクリプトと収集・診断モジュールの構文検査成功 |
 | インストーラ停止確認 | 実行中のAllowanceMonitorを検出し、変更前に終了コード1で停止。インストール・アプリ起動なし |
-| ソース検査 | 許可リスト対象 25 ファイルで代表的な秘密情報パターンを検査し合格 |
+| ソース検査 | 許可リスト対象 27 ファイルで代表的な秘密情報パターンを検査し合格 |
+| ntfy 送信確認 | 保存済みの通知先へ接続確認を送り，ntfy.sh が HTTP 200 で受理．iPhone 上の表示は未確認 |
 | 混入防止の異常系 | 作業用コピーで模擬Cookiesファイル、シンボリックリンク、模擬APIキーを別々に追加し、すべて拒否されることを確認。キー値は出力されない |
 
 テストには隔離したUserDefaultsのテスト用ドメインと模擬文字列を使用し、実アカウントへのアクセスはしていません。旧保存先の実際のファイル内容も読み取ったり複製したりしていません。
@@ -63,9 +65,9 @@
 許可リストと秘密情報のパターン検査は、未知の形式の秘密や将来追加されるファイルの安全性を証明しません。今後の共有前にも検査と目視確認が必要です。
 
 * 未検証事項
-- v3.4 は =dist/QuotaMeter.app= の生成，署名検証，=~/Applications/QuotaMeter.app= へのインストールと起動を確認済み．
+- v3.5 は =dist/QuotaMeter.app= の生成，署名検証，アイコン資材，=~/Applications/QuotaMeter.app= へのインストールと起動を確認済み．
 - 通常の Chrome を使う初回設定で Google ログインに成功し，「ログイン完了」後に自動取得へ切り替わることは利用者報告．
-- v3.4 の通知設定画面は目視確認済み．macOS の通知許可，実際のしきい値・リセット通知，ntfy を使った iPhone 受信は未確認．
+- v3.5 のアイコン画像と通知設定画面は目視確認済み．macOS の通知許可，実際のしきい値・リセット通知，ntfy を使った iPhone 受信は未確認．
 - 実際の旧UserDefaultsドメインからの初回移行。移行ロジック自体は模擬ドメインで確認済み。
 - 新版の実起動時の旧アプリ検出表示と新版同士の二重起動ロック。インストーラによる実行中拒否は確認済み。
 - macOSログイン時の自動起動登録・承認と旧登録の解除。旧アプリ側でOFF、新版側で改めてONにする必要あり。

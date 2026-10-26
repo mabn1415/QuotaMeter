@@ -8,6 +8,7 @@ const root = dirname(dirname(fileURLToPath(import.meta.url)));
 const excluded = new Set(['.build', '.swiftpm', 'dist', '.git', 'collector/node_modules']);
 const topFiles = new Set(['.gitignore', 'Package.swift', 'README.org', 'VERIFICATION.org', 'LICENSE']);
 const allowed = path => topFiles.has(path) ||
+  /^Resources\/(AppIcon\.png|AppIcon\.icns)$/.test(path) ||
   /^Sources\/QuotaMeter\/[A-Za-z0-9_-]+\.swift$/.test(path) ||
   /^Tests\/QuotaMeterTests\/[A-Za-z0-9_-]+\.swift$/.test(path) ||
   /^collector\/(collector\.mjs|manual-setup\.mjs|manual-setup\.test\.mjs|parser\.mjs|parser\.test\.mjs|privacy\.mjs|privacy\.test\.mjs|package\.json|package-lock\.json)$/.test(path) ||
@@ -24,6 +25,7 @@ async function walk(dir) {
     if (stat.isDirectory()) { await walk(full); continue; }
     if (!allowed(path)) { findings.push(`${path}: outside source allowlist`); continue; }
     files.push(path);
+    if (/^Resources\/(AppIcon\.png|AppIcon\.icns)$/.test(path)) continue;
     const content = await readFile(full, 'utf8');
     const rules = [
       /-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----/,

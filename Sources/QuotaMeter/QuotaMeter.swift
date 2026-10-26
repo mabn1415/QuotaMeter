@@ -51,6 +51,7 @@ enum Storage {
     } }
     @Published var iPhoneNotificationsEnabled: Bool { didSet { UserDefaults.standard.set(iPhoneNotificationsEnabled, forKey: "iPhoneNotificationsEnabled") } }
     @Published var ntfyTopic: String { didSet { UserDefaults.standard.set(ntfyTopic, forKey: "ntfyTopic") } }
+    @Published var notificationStatus: String?
     @Published var launchAtLogin = SMAppService.mainApp.status == .enabled
     private var timer: Timer?
     private var lastAttempt = Date.distantPast
@@ -199,9 +200,18 @@ enum Storage {
         content.sound = .default
         UNUserNotificationCenter.current().add(UNNotificationRequest(
             identifier: "QuotaMeter-\(UUID().uuidString)", content: content, trigger: nil
-        ))
+        )) { [weak self] addError in
+            guard let addError else { return }
+            Task { @MainActor [weak self] in
+                self?.notificationStatus = "Mac 通知の送信に失敗しました．"
+                self?.error = "Mac 通知の送信に失敗: \(addError.localizedDescription)"
+            }
+        }
 
-        guard iPhoneNotificationsEnabled else { return }
+        guard iPhoneNotificationsEnabled else {
+            notificationStatus = "Mac 通知を送信しました．"
+            return
+        }
         let topic = ntfyTopic.trimmingCharacters(in: .whitespacesAndNewlines)
         guard topic.range(of: "^[A-Za-z0-9_-]{16,}$", options: .regularExpression) != nil else {
             error = "iPhone 通知先は 16 文字以上の英数字・_・- で設定してください．"
@@ -220,9 +230,19 @@ enum Storage {
         ])
         URLSession.shared.dataTask(with: request) { [weak self] _, response, sendError in
             if let sendError {
-                Task { @MainActor [weak self] in self?.error = "iPhone 通知の送信に失敗: \(sendError.localizedDescription)" }
+                Task { @MainActor [weak self] in
+                    self?.notificationStatus = "iPhone 通知の送信に失敗しました．"
+                    self?.error = "iPhone 通知の送信に失敗: \(sendError.localizedDescription)"
+                }
             } else if let http = response as? HTTPURLResponse, !(200..<300).contains(http.statusCode) {
-                Task { @MainActor [weak self] in self?.error = "iPhone 通知の送信に失敗（HTTP \(http.statusCode)）" }
+                Task { @MainActor [weak self] in
+                    self?.notificationStatus = "iPhone 通知の送信に失敗しました．"
+                    self?.error = "iPhone 通知の送信に失敗（HTTP \(http.statusCode)）"
+                }
+            } else {
+                Task { @MainActor [weak self] in
+                    self?.notificationStatus = "ntfy が通知を受け付けました．"
+                }
             }
         }.resume()
     }
@@ -231,7 +251,15 @@ enum Storage {
     }
     func sendTestNotification() {
         guard notificationsEnabled else { error = "先に通知を有効にしてください．"; return }
+        notificationStatus = "テスト通知を送信中…"
         deliverNotification(title: "QuotaMeter のテスト通知", body: "通知設定は正常です．", urgent: false)
+    }
+    func copyNtfyTopic() {
+        let topic = ntfyTopic.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !topic.isEmpty else { return }
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(topic, forType: .string)
+        notificationStatus = "通知先をコピーしました．"
     }
     private var commandURL: URL { Storage.directory.appendingPathComponent("worker-command.json") }
     private var responseURL: URL { Storage.directory.appendingPathComponent("worker-response.json") }
@@ -566,10 +594,14 @@ struct DashboardView: View {
                             TextField("ntfy の通知先トピック", text: $monitor.ntfyTopic)
                                 .textFieldStyle(.roundedBorder)
                             Button("自動作成") { monitor.generateNtfyTopic() }
+                            Button("コピー") { monitor.copyNtfyTopic() }
                             Button("テスト") { monitor.sendTestNotification() }
                         }
                         Text("iPhone の ntfy アプリで同じトピックを購読してください．推測されにくい 16 文字以上の名前を使用します．")
                             .font(.caption).foregroundStyle(.secondary)
+                        if let status = monitor.notificationStatus {
+                            Text(status).font(.caption).foregroundStyle(.secondary)
+                        }
                     }
                 }.padding(18).background(.primary.opacity(0.045), in: RoundedRectangle(cornerRadius: 16))
                 HStack {

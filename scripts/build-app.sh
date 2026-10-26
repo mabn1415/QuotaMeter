@@ -50,6 +50,7 @@ for file in collector.mjs manual-setup.mjs parser.mjs privacy.mjs package.json; 
   cp "$ROOT/collector/$file" "$APP/Contents/Resources/collector/"
 done
 cp -R "$ROOT/collector/node_modules" "$APP/Contents/Resources/collector/"
+cp "$ROOT/Resources/AppIcon.icns" "$APP/Contents/Resources/AppIcon.icns"
 # Include this project's terms and source availability notice in the bundle.
 cp "$ROOT/LICENSE" "$ROOT/README.org" "$APP/Contents/Resources/"
 cat > "$APP/Contents/Info.plist" <<'PLIST'
@@ -61,9 +62,10 @@ cat > "$APP/Contents/Info.plist" <<'PLIST'
 <key>CFBundleDisplayName</key><string>QuotaMeter</string>
 <key>CFBundleExecutable</key><string>QuotaMeter</string>
 <key>CFBundlePackageType</key><string>APPL</string>
+<key>CFBundleIconFile</key><string>AppIcon</string>
 <key>NSHumanReadableCopyright</key><string>Copyright (c) 2026 mabn1415. GPL-3.0-only.</string>
-<key>CFBundleVersion</key><string>34</string>
-<key>CFBundleShortVersionString</key><string>3.4</string>
+<key>CFBundleVersion</key><string>35</string>
+<key>CFBundleShortVersionString</key><string>3.5</string>
 <key>LSMinimumSystemVersion</key><string>14.0</string>
 <key>LSUIElement</key><true/>
 <key>NSHighResolutionCapable</key><true/>
