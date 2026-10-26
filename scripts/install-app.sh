@@ -21,8 +21,17 @@ ditto "$SOURCE" "$STAGING/QuotaMeter.app"
 codesign --verify --deep --strict "$STAGING/QuotaMeter.app"
 BACKUP="$TARGET_DIR/QuotaMeter.app.previous"
 if [ -e "$BACKUP" ]; then
-  echo "既存のバックアップがあります。内容を確認して別の場所に移動してください: $BACKUP" >&2
-  exit 1
+  BACKUP_DIR="$TARGET_DIR/QuotaMeter Backups"
+  mkdir -p "$BACKUP_DIR"
+  STAMP="$(date '+%Y%m%d-%H%M%S')"
+  ARCHIVED_BACKUP="$BACKUP_DIR/QuotaMeter-$STAMP.app"
+  COUNTER=1
+  while [ -e "$ARCHIVED_BACKUP" ]; do
+    ARCHIVED_BACKUP="$BACKUP_DIR/QuotaMeter-$STAMP-$COUNTER.app"
+    COUNTER=$((COUNTER + 1))
+  done
+  mv "$BACKUP" "$ARCHIVED_BACKUP"
+  echo "以前のバックアップを退避: $ARCHIVED_BACKUP"
 fi
 if [ -e "$TARGET" ]; then mv "$TARGET" "$BACKUP"; fi
 if ! mv "$STAGING/QuotaMeter.app" "$TARGET"; then

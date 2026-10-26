@@ -54,8 +54,8 @@ cat > "$APP/Contents/Info.plist" <<'PLIST'
 <key>CFBundleExecutable</key><string>QuotaMeter</string>
 <key>CFBundlePackageType</key><string>APPL</string>
 <key>NSHumanReadableCopyright</key><string>Copyright (c) 2026 mabn1415. GPL-3.0-only.</string>
-<key>CFBundleVersion</key><string>31</string>
-<key>CFBundleShortVersionString</key><string>3.1</string>
+<key>CFBundleVersion</key><string>32</string>
+<key>CFBundleShortVersionString</key><string>3.2</string>
 <key>LSMinimumSystemVersion</key><string>14.0</string>
 <key>LSUIElement</key><true/>
 <key>NSHighResolutionCapable</key><true/>

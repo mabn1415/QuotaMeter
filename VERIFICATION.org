@@ -1,9 +1,9 @@
-#+TITLE: QuotaMeter v3.1 変更・検証記録
+#+TITLE: QuotaMeter v3.2 変更・検証記録
 #+LANGUAGE: ja
 #+OPTIONS: toc:2 num:nil
 
 * 対象と作業範囲
-- 対象: =~/Documents/QuotaMeter= のQuotaMeter v3.1。
+- 対象: =~/Documents/QuotaMeter= のQuotaMeter v3.2。
 - GitHubのPublicリポジトリは作成済み。GPL-3.0-onlyで公開中。
 - Xcode導入後にインストールできたこと、ChatGPT側のログイン方法で認証できたことは利用者報告。実アカウントの内容は検証作業では読み取っていない。
 - Google経由のログインは別デバイスで拒否されたことを利用者が確認。ブラウザ偽装やCookieコピーによる回避は行わない。
@@ -11,7 +11,7 @@
 
 * 主な変更
 - Swift Package、ターゲット、ソース名、アプリ表示、実行ファイル、Info.plist、インストール先をQuotaMeterに統一。
-- Bundle Identifierを =local.quotameter.app= に変更。バージョンは3.1 / build 31。
+- Bundle Identifierは =local.quotameter.app= 。バージョンは3.2 / build 32。
 - 保存先は =Application Support/AllowanceMonitor= のまま維持。Chromeプロファイル・利用履歴を複製せず再利用する設計。
 - 旧UserDefaultsの3キーのみを一度だけ取り込む。新しい設定は上書きしない。旧ドメインは削除しない。
 - 新版起動時の旧アプリ検出、新版同士のファイルロック、インストーラの実行中確認を追加。
@@ -38,7 +38,7 @@
 | Releaseビルド | 成功。dist/QuotaMeter.appを生成。Mach-O arm64 |
 | Command Line Tools単体のReleaseビルド | 隔離した新規ビルド領域で成功。環境の組み合わせによるSwiftUIマクロエラーまでは否定できない |
 | Chromeサンドボックス | 一時プロファイルで =chromiumSandbox: true= の通常表示・ヘッドレス起動に成功。既存プロファイルでのログイン維持は未検証 |
-| Info.plist検査 | 表示名、実行ファイル名、Bundle Identifier、version 3.1の一致を確認 |
+| Info.plist検査 | 表示名、実行ファイル名、Bundle Identifier、version 3.2の一致を確認 |
 | アプリ資材検査 | 必要モジュール・依存の存在を確認。プロファイル/Cookies/履歴/config/usageを含まないことをファイル名で確認 |
 | 署名検証 | codesign --verify --deep --strict 成功。アドホック署名であり身元証明・公証ではない |
 | 構文確認 | 3本のシェルスクリプトと収集・診断モジュールの構文検査成功 |

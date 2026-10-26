@@ -1,5 +1,5 @@
 #+TITLE: QuotaMeter
-#+SUBTITLE: 非公式 macOS 利用枠モニター — v3.1
+#+SUBTITLE: 非公式 macOS 利用枠モニター — v3.2
 #+LANGUAGE: ja
 #+OPTIONS: toc:2 num:nil
 
@@ -32,7 +32,7 @@ Finder 起動時の Node.js 検索先は =/opt/homebrew/bin/node=，=/usr/local/
 ./scripts/install-app.sh
 #+end_src
 
-=install-deps.sh= は lockfile に従って依存を導入し，JavaScript テストを実行します．=build-app.sh= は =dist/QuotaMeter.app= を作成し，アドホック署名を検証します．=install-app.sh= は =~/Applications/QuotaMeter.app= に配置して起動します．Node.js 本体と Chrome は同梱しません．
+=install-deps.sh= は lockfile に従って依存を導入し，JavaScript テストを実行します．=build-app.sh= は =dist/QuotaMeter.app= を作成し，アドホック署名を検証します．=install-app.sh= は =~/Applications/QuotaMeter.app= に配置して起動します．直前のアプリは =QuotaMeter.app.previous=，それ以前の版は =QuotaMeter Backups/= に退避します．Node.js 本体と Chrome は同梱しません．
 
 * 初回設定
  1. アプリの初回案内で「設定を完了して開始」を選択
