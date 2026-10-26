@@ -6,7 +6,31 @@ if [ ! -d "$ROOT/collector/node_modules/playwright" ]; then
   echo '先に ./scripts/install-deps.sh を実行してください。' >&2
   exit 1
 fi
-swift build -c release
+
+command -v xcode-select >/dev/null 2>&1 || {
+  echo 'Xcode または Command Line Tools が見つかりません。' >&2
+  exit 1
+}
+command -v swift >/dev/null 2>&1 || {
+  echo 'Swift が見つかりません。Xcode のインストールと選択状態を確認してください。' >&2
+  exit 1
+}
+
+DEVELOPER_DIR_PATH="$(xcode-select -p 2>/dev/null || true)"
+if [ -z "$DEVELOPER_DIR_PATH" ]; then
+  echo '開発ツールが選択されていません。Xcode のインストールと xcode-select の状態を確認してください。' >&2
+  exit 1
+fi
+echo "開発ツール: $DEVELOPER_DIR_PATH"
+swift --version | head -n 1
+
+# A failed build must not leave an older bundle available to install.
+rm -rf "$ROOT/dist/QuotaMeter.app"
+if ! swift build -c release; then
+  echo 'QuotaMeter のビルドに失敗しました。dist/QuotaMeter.app は作成していません。' >&2
+  echo 'SwiftUIMacros のエラーが出る場合は、Xcode のインストールと xcode-select -p の結果を確認してください。' >&2
+  exit 1
+fi
 BIN_DIR="$(swift build -c release --show-bin-path)"
 # Use a fresh staging directory so old resources never enter the new bundle.
 STAGING="$(mktemp -d "$ROOT/.build/quotameter-app.XXXXXX")"

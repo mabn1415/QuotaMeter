@@ -187,7 +187,11 @@ async function writeJSON(path, value) {
 }
 async function launchChrome() {
   context = await chromium.launchPersistentContext(profile, {
-    channel: 'chrome', headless: false, viewport: { width: 1400, height: 950 }, locale: 'ja-JP'
+    channel: 'chrome',
+    headless: false,
+    chromiumSandbox: true,
+    viewport: { width: 1400, height: 950 },
+    locale: 'ja-JP'
   });
   context.on('close', () => { context = undefined; page = undefined; windowController = undefined; });
   page = context.pages()[0] || await context.newPage();
