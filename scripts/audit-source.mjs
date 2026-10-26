@@ -10,7 +10,7 @@ const topFiles = new Set(['.gitignore', 'Package.swift', 'README.org', 'VERIFICA
 const allowed = path => topFiles.has(path) ||
   /^Sources\/QuotaMeter\/[A-Za-z0-9_-]+\.swift$/.test(path) ||
   /^Tests\/QuotaMeterTests\/[A-Za-z0-9_-]+\.swift$/.test(path) ||
-  /^collector\/(collector\.mjs|parser\.mjs|parser\.test\.mjs|privacy\.mjs|privacy\.test\.mjs|package\.json|package-lock\.json)$/.test(path) ||
+  /^collector\/(collector\.mjs|manual-setup\.mjs|manual-setup\.test\.mjs|parser\.mjs|parser\.test\.mjs|privacy\.mjs|privacy\.test\.mjs|package\.json|package-lock\.json)$/.test(path) ||
   /^scripts\/(build-app\.sh|install-app\.sh|install-deps\.sh|audit-source\.mjs)$/.test(path);
 const findings = [];
 const files = [];

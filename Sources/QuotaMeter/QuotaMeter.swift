@@ -220,7 +220,7 @@ enum Storage {
     func beginSetup() {
         guard !busy else { return }
         if networkChecked && !networkAvailable { error = "オフラインのため初期設定できません。"; return }
-        // Setup uses the same persistent Chrome profile: close the worker first.
+        // Manual login uses the same persistent Chrome profile: close Playwright first.
         stopWorker()
         busy = true; setupMode = true; error = nil; lastAttempt = Date()
         guard let (node, script) = nodeAndScript() else { busy = false; setupMode = false; return }
@@ -233,7 +233,7 @@ enum Storage {
         DispatchQueue.global(qos: .utility).async { [weak self] in
             let result: String?
             do {
-                // The worker must exit before opening the same Chrome profile.
+                // The worker must exit before ordinary Chrome opens the same profile.
                 Thread.sleep(forTimeInterval: 2)
                 try process.run()
                 let data = output.fileHandleForReading.readDataToEndOfFile()
@@ -250,6 +250,10 @@ enum Storage {
         }
     }
     func stopWorker() {
+        if let process = currentProcess, process.isRunning {
+            process.terminate()
+        }
+        currentProcess = nil
         if let process = workerProcess, process.isRunning {
             process.terminate()
         }
@@ -394,10 +398,10 @@ struct DashboardView: View {
                     Toggle("Macログイン時に自動起動", isOn: Binding(get: { monitor.launchAtLogin }, set: { monitor.updateLaunchAtLogin($0) }))
                     Divider()
                     HStack {
-                        Button("Chromeで初期設定・再ログイン") { monitor.beginSetup() }.disabled(monitor.busy)
-                        if monitor.setupMode { Text("Chromeでログインし、使用状況画面を開いてください（最大5分）").font(.caption) }
+                        Button("通常のChromeで初期設定・再ログイン") { monitor.beginSetup() }.disabled(monitor.busy)
+                        if monitor.setupMode { Text("ログイン後、Chromeを完全に終了すると自動取得を開始します").font(.caption) }
                     }
-                    Text("初回のみNode.jsとPlaywrightのインストールが必要です。ログイン状態は専用Chromeプロファイルに保存され、通常の自動更新では再ログイン不要です。")
+                    Text("初回設定ではPlaywrightを介さず通常のChromeを開きます。ログイン状態は専用Chromeプロファイルに保存され、通常の自動更新ではPlaywrightが同じプロファイルを再利用します。")
                         .font(.caption).foregroundStyle(.secondary)
                     if let error = monitor.error { Text(error).font(.caption).foregroundStyle(.red).textSelection(.enabled) }
                 }.padding(18).background(.primary.opacity(0.045), in: RoundedRectangle(cornerRadius: 16))
@@ -603,7 +607,7 @@ private struct OnboardingView: View {
                 .padding(6)
             }
             GroupBox("2. 利用状況の取得") {
-                Text("メニューバーの QuotaMeter →「Chromeで初期設定・再ログイン」からChatGPTの使用状況を取得できます。Chromeは通常起動し、自動更新時は最小化して常駐します。")
+                Text("メニューバーの QuotaMeter →「通常のChromeで初期設定・再ログイン」からログインしてください。Chromeを完全に終了すると、自動更新用Chromeが最小化して常駐します。")
                     .font(.callout)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(6)

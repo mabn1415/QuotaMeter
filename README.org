@@ -36,11 +36,11 @@ Finder 起動時の Node.js 検索先は =/opt/homebrew/bin/node=，=/usr/local/
 
 * 初回設定
  1. アプリの初回案内で「設定を完了して開始」を選択
- 2. メニューバー →「詳細・設定」→「Chrome で初期設定・再ログイン」を選択
- 3. 専用 Chrome で ChatGPT にログインし，設定 → 使用状況で両方の利用枠を表示
- 4. 最大約 5 分以内に検出され，メニューバーに残量と取得時刻が表示されることを確認
+ 2. メニューバー →「詳細・設定」→「通常の Chrome で初期設定・再ログイン」を選択
+ 3. 開いた Chrome で ChatGPT にログインし，Chrome メニュー →「Google Chrome を終了」で完全に終了
+ 4. 自動更新用 Chrome が起動するので，最大約 5 分以内にメニューバーへ残量と取得時刻が表示されることを確認
 
-通常の Chrome とは別プロファイルのため，初回ログインが必要です．Chrome の最小化には CDP を使い，この実装はアクセシビリティ権限を要求しません．
+初回設定では Playwright を介さず，通常の Google Chrome を専用プロファイルで開きます．普段の Chrome とはログイン状態を分けて管理するため，初回ログインが必要です．ログイン後に Chrome を完全に終了すると，Playwright が同じプロファイルを再利用して自動取得を開始します．Chrome の最小化には CDP を使い，この実装はアクセシビリティ権限を要求しません．
 
 * 起動・終了
 インストール完了時は自動で起動します．次回以降は，Finder の「移動」→「フォルダへ移動」で次の場所を開き，=QuotaMeter.app= をダブルクリックしてください．
@@ -66,8 +66,9 @@ open "$HOME/Applications/QuotaMeter.app"
 #+begin_example
 Finder / ログイン項目
   → Swift / AppKit がメニューバーに常駐し，SwiftUI で詳細を表示
-  → Node.js の常駐ワーカーへ JSON ファイルで更新を指示
-  → Playwright が専用プロファイルの Google Chrome を起動・再利用
+  → 初回設定時は Node.js が通常の Google Chrome を専用プロファイルで起動
+  → Chrome 終了後，Node.js の常駐ワーカーへ JSON ファイルで更新を指示
+  → 通常取得時は Playwright が同じプロファイルの Google Chrome を起動・再利用
   → 使用状況画面の表示テキストから日本語の残量・相対時間を解析
   → 最新値・履歴・応答を保存し，Swift が読み込んで表示
 #+end_example
@@ -123,7 +124,7 @@ node scripts/audit-source.mjs --list
 
 * 制限事項・トラブルシューティング
  - 日本語の見出しと「残り N%」の両枠表示が必要で，画面変更や別プランでは取得できない場合がある
- - Playwright が起動した Chrome では Google 経由のログインを拒否される場合がある．利用できる場合は ChatGPT 側のログイン方法を選択し，対応する方法がないアカウントでは利用できないことがある
+ - 初回ログインは Playwright を介さない通常の Chrome で行うが，Google や OpenAI の認証条件によってログインできない場合がある
  - 残量は定期取得した参考値で，リセット時刻は概算．即時性や課金上の正確性は保証しない
  - Chrome が一時的に前面へ出る場合があり，履歴が大きくなると読込みや描画が重くなる
  - Developer ID 署名・公証は未実施で，Intel Mac や別 OS での動作も未検証
@@ -136,7 +137,7 @@ node scripts/audit-source.mjs --list
 | CHROME_LAUNCH_FAILED | Google Chrome のインストールと通常起動を確認 |
 | PROFILE_BUSY | 同じプロファイルを使うアプリ・手動収集・専用 Chrome を終了して待つ．使用中にロックファイルを削除しない |
 | LOGIN_REQUIRED | 詳細画面から専用 Chrome で再ログイン |
-| Google 経由でログインできない | アカウントで利用できる場合は ChatGPT 側のログイン方法を使用．ブラウザ偽装や Cookie のコピーは行わない |
+| Google 経由でログインできない | 「通常の Chrome で初期設定・再ログイン」を選び直す．ログイン後はウィンドウだけでなく Chrome を完全に終了．ブラウザ偽装や Cookie のコピーは行わない |
 | USAGE_NOT_FOUND | 日本語の使用状況画面で両枠を表示し，画面構成の変更も確認 |
 | タイムアウト・古い値・! 表示 | 接続・ログイン・最終取得時刻を確認し，再更新 |
 | 自動起動しない | 詳細画面の自動起動設定と macOS のログイン項目の承認を確認 |

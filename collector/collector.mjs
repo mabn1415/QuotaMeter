@@ -4,6 +4,7 @@ import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { parseUsage } from './parser.mjs';
 import { diagnosticMessage } from './privacy.mjs';
+import { openManualChrome } from './manual-setup.mjs';
 
 // New files are private; keep the v3.0 profile path without copying credentials.
 process.umask(0o077);
@@ -159,7 +160,7 @@ async function recordFailure(error) {
   const reason = /profile.*in use|user data directory is already in use|ProcessSingleton/i.test(message)
     ? 'PROFILE_BUSY'
     : /ReferenceError|is not defined/i.test(message) ? 'COLLECTOR_CODE_ERROR'
-    : /Failed to launch|Executable doesn't exist|browserType.launchPersistentContext/i.test(message) ? 'CHROME_LAUNCH_FAILED'
+    : /Failed to launch|Executable doesn't exist|browserType.launchPersistentContext|通常のChrome/i.test(message) ? 'CHROME_LAUNCH_FAILED'
     : loginLikely ? 'LOGIN_REQUIRED' : 'USAGE_NOT_FOUND';
   await writeFile(diagnosticsPath, JSON.stringify({ at: new Date().toISOString(), reason, message, windowMode, pageUrl: validChatGPT(page?.url()) ? 'https://chatgpt.com/' : null }, null, 2)).catch(() => {});
   console.error(`ERROR [${reason}]: ${message}`);
@@ -268,26 +269,17 @@ try {
   let config = {};
   try { config = JSON.parse(await readFile(configPath, 'utf8')); } catch { /* first run */ }
   initialUrl = validChatGPT(config.usageUrl) ? config.usageUrl : 'https://chatgpt.com/';
-  if (daemon) {
+  if (setup) {
+    console.log('通常のChromeでログインしてください。完了後はウィンドウを閉じるだけでなく、Chromeを完全に終了してください。');
+    await openManualChrome(profile, initialUrl);
+    await writeJSON(configPath, { usageUrl: initialUrl });
+    console.log('SETUP_BROWSER_CLOSED');
+  } else if (daemon) {
     await runDaemon();
   } else {
     await launchChrome();
-    if (setup) {
-      console.log('Chromeでログインし、設定 → 使用状況を開いてください（最大5分）。');
-      let usage;
-      for (let i = 0; i < 150; i++) {
-        usage = await readUsage(page);
-        if (usage) break;
-        await sleep(2000);
-      }
-      if (!usage) throw new Error('5分以内に5時間枠と週間枠を検出できませんでした。');
-      await writeJSON(configPath, { usageUrl: validChatGPT(page.url()) ? page.url() : 'https://chatgpt.com/' });
-      await save(usage);
-      console.log('SETUP_OK');
-    } else {
-      await collectOnce();
-      console.log('REFRESH_OK');
-    }
+    await collectOnce();
+    console.log('REFRESH_OK');
   }
 } catch (error) {
   await recordFailure(error);

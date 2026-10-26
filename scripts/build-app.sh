@@ -38,7 +38,7 @@ trap 'rm -rf "$STAGING"' EXIT
 APP="$STAGING/QuotaMeter.app"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources/collector"
 cp "$BIN_DIR/QuotaMeter" "$APP/Contents/MacOS/QuotaMeter"
-for file in collector.mjs parser.mjs privacy.mjs package.json; do
+for file in collector.mjs manual-setup.mjs parser.mjs privacy.mjs package.json; do
   cp "$ROOT/collector/$file" "$APP/Contents/Resources/collector/"
 done
 cp -R "$ROOT/collector/node_modules" "$APP/Contents/Resources/collector/"
