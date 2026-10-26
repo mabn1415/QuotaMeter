@@ -1,0 +1,52 @@
+# Build output and local editor state
+.build/
+.swiftpm/
+dist/
+node_modules/
+.DS_Store
+*.xcuserstate
+xcuserdata/
+# Credentials, browser profiles, runtime records and diagnostics
+.env
+.env.*
+!.env.example
+.npmrc
+*.pem
+*.key
+*.p12
+*.mobileprovision
+*chrome-profile*/
+*Chrome*Profile*/
+Application Support/
+AllowanceMonitor/
+QuotaMeter-data/
+User Data/
+Default/
+Profile */
+Cookies*
+History*
+Login Data*
+Local State
+Preferences
+Secure Preferences
+Singleton*
+config.json
+usage.json*
+history.jsonl*
+worker-*.json*
+worker-command.tmp
+collector-diagnostics.json*
+quotameter.lock
+*.log
+*.har
+storageState*.json
+storage-state*.json
+playwright-report/
+test-results/
+screenshots/
+*.zip
+*.dmg
+*.app/
+
+# Emacs local undo history
+.*.~undo-tree~

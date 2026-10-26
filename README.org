@@ -109,7 +109,7 @@ Swift は 15 秒ごとに応答と更新時期を確認します．Chrome は通
  - [[https://openai.com/policies/][OpenAI Terms & Policies]]
  - [[https://openai.com/brand/][OpenAI Brand Guidelines]]
 
-上記は 2026-10-26 に確認した資料です．組織アカウントでは別契約や組織の方針も確認してください．本プロジェクトのライセンスは未設定です．公開・再配布前に権利関係と配布条件を確認する必要があります．
+上記は 2026-10-26 に確認した資料です．組織アカウントでは別契約や組織の方針も確認してください．本プロジェクトのライセンスは末尾の「ライセンス」を参照してください．
 
 共有前に次を実行し，=--list= に出るソースだけを共有してください．=.gitignore= だけでは混入を防ぎきれません．検査は代表的な秘密情報パターンと許可リストによるもので，検出を保証しません．
 
@@ -118,7 +118,7 @@ node scripts/audit-source.mjs
 node scripts/audit-source.mjs --list
 #+end_src
 
-=.build/=，=.swiftpm/=，=dist/=，=collector/node_modules/=，=.git/= は検査対象外です．フォルダ全体を公開せず，生成物や Chrome プロファイルを共有対象に含めないでください．今回，Git の作成・コミット・push・公開は行っていません．
+=.build/=，=.swiftpm/=，=dist/=，=collector/node_modules/=，=.git/= は検査対象外です．フォルダ全体を公開せず，生成物や Chrome プロファイルを共有対象に含めないでください．
 
 * 制限事項・トラブルシューティング
  - 日本語の見出しと「残り N%」の両枠表示が必要で，画面変更や別プランでは取得できない場合がある
@@ -152,3 +152,15 @@ node scripts/audit-source.mjs
 #+end_src
 
 ビルド・テスト結果と未検証事項は [[file:VERIFICATION.org][VERIFICATION.org]] を参照してください．実アカウントでの取得・ログイン継続・実画面・ログイン時の自動起動は今回未検証です．
+
+* ライセンス
+Copyright (c) 2026 mabn1415
+
+本プロジェクトは GNU General Public License version 3 のみ（=GPL-3.0-only=）で提供します．全文は [[file:LICENSE][LICENSE]] を参照してください．
+
+ - 利用・改変・再配布・商用利用が可能
+ - 配布時は GPLv3 の条件に従い，対応するソースコードを提供し，著作権表示とライセンス文を維持
+ - 改変版を配布する場合は変更を明示し，GPLv3 を適用
+ - 無保証で提供し，依存パッケージにはそれぞれのライセンスを適用
+
+ソースコードは [[https://github.com/mabn1415/QuotaMeter][GitHub リポジトリ]] で公開しています．アプリを配布する際は，配布した版に対応するソースコードも提供してください．ライセンスは OpenAI などの外部サービスの利用条件を変更するものではありません．

@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url';
 
 const root = dirname(dirname(fileURLToPath(import.meta.url)));
 const excluded = new Set(['.build', '.swiftpm', 'dist', '.git', 'collector/node_modules']);
-const topFiles = new Set(['.gitignore', 'Package.swift', 'README.org', 'VERIFICATION.org']);
+const topFiles = new Set(['.gitignore', 'Package.swift', 'README.org', 'VERIFICATION.org', 'LICENSE']);
 const allowed = path => topFiles.has(path) ||
   /^Sources\/QuotaMeter\/[A-Za-z0-9_-]+\.swift$/.test(path) ||
   /^Tests\/QuotaMeterTests\/[A-Za-z0-9_-]+\.swift$/.test(path) ||
@@ -18,7 +18,7 @@ async function walk(dir) {
   for (const name of (await readdir(dir)).sort()) {
     const full = join(dir, name);
     const path = relative(root, full);
-    if (excluded.has(path)) continue;
+    if (excluded.has(path) || /^\..+\.~undo-tree~$/.test(name)) continue;
     const stat = await lstat(full);
     if (stat.isSymbolicLink()) { findings.push(`${path}: symbolic link`); continue; }
     if (stat.isDirectory()) { await walk(full); continue; }
