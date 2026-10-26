@@ -160,7 +160,7 @@ async function recordFailure(error) {
   const reason = /profile.*in use|user data directory is already in use|ProcessSingleton/i.test(message)
     ? 'PROFILE_BUSY'
     : /ReferenceError|is not defined/i.test(message) ? 'COLLECTOR_CODE_ERROR'
-    : /Failed to launch|Executable doesn't exist|browserType.launchPersistentContext|通常のChrome/i.test(message) ? 'CHROME_LAUNCH_FAILED'
+    : /Failed to launch|Executable doesn't exist|browserType.launchPersistentContext|通常のChrome|Google Chrome\.app/i.test(message) ? 'CHROME_LAUNCH_FAILED'
     : loginLikely ? 'LOGIN_REQUIRED' : 'USAGE_NOT_FOUND';
   await writeFile(diagnosticsPath, JSON.stringify({ at: new Date().toISOString(), reason, message, windowMode, pageUrl: validChatGPT(page?.url()) ? 'https://chatgpt.com/' : null }, null, 2)).catch(() => {});
   console.error(`ERROR [${reason}]: ${message}`);
@@ -270,7 +270,7 @@ try {
   try { config = JSON.parse(await readFile(configPath, 'utf8')); } catch { /* first run */ }
   initialUrl = validChatGPT(config.usageUrl) ? config.usageUrl : 'https://chatgpt.com/';
   if (setup) {
-    console.log('通常のChromeでログインしてください。完了後はウィンドウを閉じるだけでなく、Chromeを完全に終了してください。');
+    console.log('通常のChromeでログインしてください。完了後はQuotaMeterの「ログイン完了」を押してください。');
     await openManualChrome(profile, initialUrl);
     await writeJSON(configPath, { usageUrl: initialUrl });
     console.log('SETUP_BROWSER_CLOSED');

@@ -249,6 +249,10 @@ enum Storage {
             }
         }
     }
+    func finishSetup() {
+        guard setupMode, let process = currentProcess, process.isRunning else { return }
+        process.terminate()
+    }
     func stopWorker() {
         if let process = currentProcess, process.isRunning {
             process.terminate()
@@ -397,9 +401,16 @@ struct DashboardView: View {
                     Text("メニューバーは5時間枠を表示（週間枠は詳細で確認）").foregroundStyle(.secondary)
                     Toggle("Macログイン時に自動起動", isOn: Binding(get: { monitor.launchAtLogin }, set: { monitor.updateLaunchAtLogin($0) }))
                     Divider()
-                    HStack {
+                    if monitor.setupMode {
+                        HStack {
+                            Text("ログイン後に押すと，専用 Chrome を終了して自動取得を開始します")
+                                .font(.caption)
+                            Spacer()
+                            Button("ログイン完了") { monitor.finishSetup() }
+                                .buttonStyle(.borderedProminent)
+                        }
+                    } else {
                         Button("通常のChromeで初期設定・再ログイン") { monitor.beginSetup() }.disabled(monitor.busy)
-                        if monitor.setupMode { Text("ログイン後、Chromeを完全に終了すると自動取得を開始します").font(.caption) }
                     }
                     Text("初回設定ではPlaywrightを介さず通常のChromeを開きます。ログイン状態は専用Chromeプロファイルに保存され、通常の自動更新ではPlaywrightが同じプロファイルを再利用します。")
                         .font(.caption).foregroundStyle(.secondary)
@@ -607,7 +618,7 @@ private struct OnboardingView: View {
                 .padding(6)
             }
             GroupBox("2. 利用状況の取得") {
-                Text("メニューバーの QuotaMeter →「通常のChromeで初期設定・再ログイン」からログインしてください。Chromeを完全に終了すると、自動更新用Chromeが最小化して常駐します。")
+                Text("メニューバーの QuotaMeter →「通常のChromeで初期設定・再ログイン」からログインしてください。ログイン後に「ログイン完了」を押すと、自動更新用Chromeが最小化して常駐します。")
                     .font(.callout)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(6)

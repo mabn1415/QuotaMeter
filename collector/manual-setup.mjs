@@ -1,12 +1,9 @@
 import { spawn } from 'node:child_process';
 
+export const chromeExecutable = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
+
 export function manualChromeArguments(profile, url) {
   return [
-    '-W',
-    '-n',
-    '-a',
-    'Google Chrome',
-    '--args',
     `--user-data-dir=${profile}`,
     '--password-store=basic',
     '--use-mock-keychain',
@@ -15,14 +12,25 @@ export function manualChromeArguments(profile, url) {
   ];
 }
 
-export function openManualChrome(profile, url, spawnProcess = spawn) {
+export function openManualChrome(profile, url, spawnProcess = spawn, signalTarget = process) {
   return new Promise((resolve, reject) => {
-    const child = spawnProcess('/usr/bin/open', manualChromeArguments(profile, url), {
+    const child = spawnProcess(chromeExecutable, manualChromeArguments(profile, url), {
       stdio: 'ignore'
     });
-    child.once('error', reject);
+    let finishRequested = false;
+    const cleanup = () => signalTarget.off('SIGTERM', finish);
+    const finish = () => {
+      finishRequested = true;
+      child.kill('SIGTERM');
+    };
+    signalTarget.once('SIGTERM', finish);
+    child.once('error', error => {
+      cleanup();
+      reject(error);
+    });
     child.once('exit', (code, signal) => {
-      if (code === 0) resolve();
+      cleanup();
+      if (code === 0 || finishRequested) resolve();
       else reject(new Error(`通常のChromeが終了しました（code=${code ?? 'none'}, signal=${signal ?? 'none'}）。`));
     });
   });
