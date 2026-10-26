@@ -27,7 +27,6 @@ Finder 起動時の Node.js 検索先は =/opt/homebrew/bin/node=，=/usr/local/
 プロジェクトフォルダで次を実行します．更新時はアプリと専用 Chrome を終了してください．
 
 #+begin_src sh
-cd ~/Documents/QuotaMeter
 ./scripts/install-deps.sh
 ./scripts/build-app.sh
 ./scripts/install-app.sh
