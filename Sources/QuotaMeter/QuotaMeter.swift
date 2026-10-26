@@ -4,6 +4,7 @@ import ServiceManagement
 import Charts
 import Combine
 import Network
+import UserNotifications
 import Darwin
 
 struct Limit: Codable { let remainingPercent: Double; let resetAt: Date? }
@@ -44,6 +45,12 @@ enum Storage {
     @Published private(set) var networkChecked = false
     @Published var intervalMinutes: Int { didSet { UserDefaults.standard.set(intervalMinutes, forKey: "intervalMinutes") } }
     @Published var displayWeekly: Bool { didSet { UserDefaults.standard.set(displayWeekly, forKey: "displayWeekly") } }
+    @Published var notificationsEnabled: Bool { didSet {
+        UserDefaults.standard.set(notificationsEnabled, forKey: "notificationsEnabled")
+        if notificationsEnabled { requestNotificationPermission() }
+    } }
+    @Published var iPhoneNotificationsEnabled: Bool { didSet { UserDefaults.standard.set(iPhoneNotificationsEnabled, forKey: "iPhoneNotificationsEnabled") } }
+    @Published var ntfyTopic: String { didSet { UserDefaults.standard.set(ntfyTopic, forKey: "ntfyTopic") } }
     @Published var launchAtLogin = SMAppService.mainApp.status == .enabled
     private var timer: Timer?
     private var lastAttempt = Date.distantPast
@@ -56,12 +63,19 @@ enum Storage {
     private let pathMonitor = NWPathMonitor()
     private let pathQueue = DispatchQueue(label: "QuotaMeter.network", qos: .utility)
     private var pendingRefreshOnReconnect = false
+    private var observedUsage: Usage?
+    private var sentThresholdKeys: Set<String>
 
     init() {
         let storedInterval = UserDefaults.standard.object(forKey: "intervalMinutes") as? Int
         intervalMinutes = [1, 2, 3, 5].contains(storedInterval ?? 3) ? (storedInterval ?? 3) : 3
         displayWeekly = false // 5時間枠を常にメニューバーに表示
+        notificationsEnabled = UserDefaults.standard.bool(forKey: "notificationsEnabled")
+        iPhoneNotificationsEnabled = UserDefaults.standard.bool(forKey: "iPhoneNotificationsEnabled")
+        ntfyTopic = UserDefaults.standard.string(forKey: "ntfyTopic") ?? ""
+        sentThresholdKeys = Set(UserDefaults.standard.stringArray(forKey: "sentThresholdKeys") ?? [])
         load()
+        observedUsage = usage
         pathMonitor.pathUpdateHandler = { [weak self] path in
             let available = path.status == .satisfied
             Task { @MainActor [weak self] in
@@ -117,7 +131,14 @@ enum Storage {
     var selectedLimit: Limit? { usage?.fiveHour }
     var statusText: String { if busy { return "更新中" }; if !networkAvailable { return "オフライン" }; if error != nil { return "取得失敗" }; if stale { return "情報が古い" }; return "最新" }
     func load() {
-        if let data = try? Data(contentsOf: Storage.directory.appendingPathComponent("usage.json")), let value = try? Storage.decoder().decode(Usage.self, from: data) { usage = value }
+        if let data = try? Data(contentsOf: Storage.directory.appendingPathComponent("usage.json")),
+           let value = try? Storage.decoder().decode(Usage.self, from: data) {
+            usage = value
+            if let previous = observedUsage, value.fetchedAt > previous.fetchedAt {
+                processNotificationEvents(QuotaNotificationRules.events(previous: previous, current: value))
+            }
+            observedUsage = value
+        }
         if let text = try? String(contentsOf: Storage.directory.appendingPathComponent("history.jsonl"), encoding: .utf8) {
             let rows = text.split(separator: "\n").suffix(1500)
             var points: [HistoryPoint] = []
@@ -128,6 +149,89 @@ enum Storage {
             }
             history = points
         }
+    }
+    private func processNotificationEvents(_ events: [QuotaNotificationEvent]) {
+        for event in events {
+            switch event {
+            case let .reset(period, remaining, resetAt):
+                sentThresholdKeys = sentThresholdKeys.filter { !$0.hasPrefix("\(period.rawValue)-") }
+                persistSentThresholds()
+                if notificationsEnabled {
+                    deliverNotification(title: "\(period.title)がリセットされました",
+                                        body: notificationBody(remaining: remaining, resetAt: resetAt), urgent: false)
+                }
+            case let .threshold(period, threshold, remaining, resetAt):
+                let key = "\(period.rawValue)-\(threshold)"
+                guard !sentThresholdKeys.contains(key) else { continue }
+                for crossed in QuotaNotificationRules.thresholds where crossed >= threshold {
+                    sentThresholdKeys.insert("\(period.rawValue)-\(crossed)")
+                }
+                persistSentThresholds()
+                if notificationsEnabled {
+                    deliverNotification(title: "\(period.title)の残量が \(threshold)％以下です",
+                                        body: notificationBody(remaining: remaining, resetAt: resetAt), urgent: threshold <= 10)
+                }
+            }
+        }
+    }
+    private func persistSentThresholds() {
+        UserDefaults.standard.set(Array(sentThresholdKeys).sorted(), forKey: "sentThresholdKeys")
+    }
+    private func notificationBody(remaining: Int, resetAt: Date?) -> String {
+        var body = "現在の残量：\(remaining)％"
+        if let resetAt { body += "\n次のリセット：\(resetAt.formatted(date: .omitted, time: .shortened))" }
+        return body
+    }
+    private func requestNotificationPermission() {
+        UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound]) { [weak self] granted, requestError in
+            guard !granted else { return }
+            Task { @MainActor [weak self] in
+                self?.notificationsEnabled = false
+                if let requestError { self?.error = "通知を有効にできません: \(requestError.localizedDescription)" }
+                else { self?.error = "通知が許可されていません．macOS の通知設定を確認してください．" }
+            }
+        }
+    }
+    private func deliverNotification(title: String, body: String, urgent: Bool) {
+        let content = UNMutableNotificationContent()
+        content.title = title
+        content.body = body
+        content.sound = .default
+        UNUserNotificationCenter.current().add(UNNotificationRequest(
+            identifier: "QuotaMeter-\(UUID().uuidString)", content: content, trigger: nil
+        ))
+
+        guard iPhoneNotificationsEnabled else { return }
+        let topic = ntfyTopic.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard topic.range(of: "^[A-Za-z0-9_-]{16,}$", options: .regularExpression) != nil else {
+            error = "iPhone 通知先は 16 文字以上の英数字・_・- で設定してください．"
+            return
+        }
+        guard let url = URL(string: "https://ntfy.sh") else { return }
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpBody = try? JSONSerialization.data(withJSONObject: [
+            "topic": topic,
+            "title": "QuotaMeter",
+            "message": "\(title)\n\(body)",
+            "priority": urgent ? 4 : 3,
+            "tags": urgent ? ["warning"] : ["chart_with_upwards_trend"]
+        ])
+        URLSession.shared.dataTask(with: request) { [weak self] _, response, sendError in
+            if let sendError {
+                Task { @MainActor [weak self] in self?.error = "iPhone 通知の送信に失敗: \(sendError.localizedDescription)" }
+            } else if let http = response as? HTTPURLResponse, !(200..<300).contains(http.statusCode) {
+                Task { @MainActor [weak self] in self?.error = "iPhone 通知の送信に失敗（HTTP \(http.statusCode)）" }
+            }
+        }.resume()
+    }
+    func generateNtfyTopic() {
+        ntfyTopic = "quotameter-" + UUID().uuidString.lowercased()
+    }
+    func sendTestNotification() {
+        guard notificationsEnabled else { error = "先に通知を有効にしてください．"; return }
+        deliverNotification(title: "QuotaMeter のテスト通知", body: "通知設定は正常です．", urgent: false)
     }
     private var commandURL: URL { Storage.directory.appendingPathComponent("worker-command.json") }
     private var responseURL: URL { Storage.directory.appendingPathComponent("worker-response.json") }
@@ -272,6 +376,13 @@ enum Storage {
             else { try SMAppService.mainApp.unregister() }
             launchAtLogin = SMAppService.mainApp.status == .enabled
         } catch { self.error = "ログイン項目の変更に失敗: \(error.localizedDescription)" }
+    }
+}
+
+final class QuotaNotificationDelegate: NSObject, UNUserNotificationCenterDelegate {
+    func userNotificationCenter(_ center: UNUserNotificationCenter,
+                                willPresent notification: UNNotification) async -> UNNotificationPresentationOptions {
+        [.banner, .sound]
     }
 }
 
@@ -444,6 +555,22 @@ struct DashboardView: View {
                         .font(.caption).foregroundStyle(.secondary)
                     Text("メニューバーは5時間枠を表示（週間枠は詳細で確認）").foregroundStyle(.secondary)
                     Toggle("Macログイン時に自動起動", isOn: Binding(get: { monitor.launchAtLogin }, set: { monitor.updateLaunchAtLogin($0) }))
+                    Divider()
+                    Toggle("残量・リセットを通知", isOn: $monitor.notificationsEnabled)
+                    Text("50・20・15・10・5・0％を下回った時と，利用枠がリセットされた時に通知します．")
+                        .font(.caption).foregroundStyle(.secondary)
+                    Toggle("iPhone にも通知（ntfy）", isOn: $monitor.iPhoneNotificationsEnabled)
+                        .disabled(!monitor.notificationsEnabled || monitor.ntfyTopic.isEmpty)
+                    if monitor.notificationsEnabled {
+                        HStack {
+                            TextField("ntfy の通知先トピック", text: $monitor.ntfyTopic)
+                                .textFieldStyle(.roundedBorder)
+                            Button("自動作成") { monitor.generateNtfyTopic() }
+                            Button("テスト") { monitor.sendTestNotification() }
+                        }
+                        Text("iPhone の ntfy アプリで同じトピックを購読してください．推測されにくい 16 文字以上の名前を使用します．")
+                            .font(.caption).foregroundStyle(.secondary)
+                    }
                 }.padding(18).background(.primary.opacity(0.045), in: RoundedRectangle(cornerRadius: 16))
                 HStack {
                     Text("最終取得: \(monitor.usage?.fetchedAt.formatted() ?? "未取得")")
@@ -628,6 +755,7 @@ enum StatusGaugeImage {
     private var monitor: Monitor?
     private var statusController: StatusBarController?
     private var setupAssistant: SetupAssistantController?
+    private let notificationDelegate = QuotaNotificationDelegate()
     private var instanceLock: Int32 = -1
 
     private func prepareLaunch() -> Bool {
@@ -667,6 +795,7 @@ enum StatusGaugeImage {
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         guard prepareLaunch() else { NSApp.terminate(nil); return }
+        UNUserNotificationCenter.current().delegate = notificationDelegate
         let monitor = Monitor()
         self.monitor = monitor
         let statusController = StatusBarController(monitor: monitor)

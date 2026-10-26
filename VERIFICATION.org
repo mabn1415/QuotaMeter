@@ -1,9 +1,9 @@
-#+TITLE: QuotaMeter v3.3 変更・検証記録
+#+TITLE: QuotaMeter v3.4 変更・検証記録
 #+LANGUAGE: ja
 #+OPTIONS: toc:2 num:nil
 
 * 対象と作業範囲
-- 対象: =~/Documents/QuotaMeter= の QuotaMeter v3.3．
+- 対象: =~/Documents/QuotaMeter= の QuotaMeter v3.4．
 - GitHubのPublicリポジトリは作成済み。GPL-3.0-onlyで公開中。
 - Xcode導入後にインストールできたこと、ChatGPT側のログイン方法で認証できたことは利用者報告。実アカウントの内容は検証作業では読み取っていない。
 - 通常の Chrome を使う方式で Google 経由のログインと，自動取得への切り替えに成功したことは利用者報告．
@@ -11,7 +11,7 @@
 
 * 主な変更
 - Swift Package、ターゲット、ソース名、アプリ表示、実行ファイル、Info.plist、インストール先をQuotaMeterに統一。
-- Bundle Identifier は =local.quotameter.app= ．バージョンは 3.3 / build 33．
+- Bundle Identifier は =local.quotameter.app= ．バージョンは 3.4 / build 34．
 - 保存先は =Application Support/AllowanceMonitor= のまま維持。Chromeプロファイル・利用履歴を複製せず再利用する設計。
 - 旧UserDefaultsの3キーのみを一度だけ取り込む。新しい設定は上書きしない。旧ドメインは削除しない。
 - 新版起動時の旧アプリ検出、新版同士のファイルロック、インストーラの実行中確認を追加。
@@ -22,6 +22,8 @@
 - lockfileを使うnpm ci、空の作業場所からの.app組立、署名検証、インストール前の退避処理を整備。
 - =setup.sh= に環境確認，依存導入，ビルド，インストールをまとめた．Xcode が導入済みで Command Line Tools が選択されている場合も，システム設定を変えずビルド時だけ Xcode を使用．
 - Timer から起動する =Task= に =[weak self]= を明示し，Swift 5.10 の並行処理チェックによる Release ビルド停止を修正．
+- 5 時間枠・週間枠の残量が 50・20・15・10・5・0％ に達した時と，リセット時の macOS 通知を追加．
+- 任意設定として ntfy 経由の iPhone 通知，通知先の自動作成，テスト通知を追加．
 - README.org、.gitignore、共有用ソース許可リストと検査スクリプトを整備。
 
 * 検証環境
@@ -37,18 +39,18 @@
 | npm ci | lockfileに従って2パッケージ導入。ブラウザ追加ダウンロードなし |
 | JavaScriptテスト | 6件成功。通常Chromeの引数・終了待機・専用プロセス終了、日本語残量・相対時間解析、非該当画面の拒否、診断のURL/ホーム伏字・長さ制限 |
 | npm audit --omit=dev | 検証時点で0件。将来を含む安全性の保証ではない |
-| Swiftテスト | XCTest 2件成功。既知キー取り込み、未設定のみ移行、一度だけ実行、不明キー拒否、新規導入、旧保存先維持 |
+| Swiftテスト | XCTest 6件成功。設定移行 2 件と，しきい値・リセット判定 4 件 |
 | Releaseビルド | 成功。dist/QuotaMeter.appを生成。Mach-O arm64 |
 | Command Line Tools単体のReleaseビルド | 隔離した新規ビルド領域で成功。環境の組み合わせによるSwiftUIマクロエラーまでは否定できない |
 | Swift 5.10 Release ビルド | Command Line Tools を明示した新規ビルド領域で成功．Timer 内の =Task= 修正を確認 |
 | 環境確認 | macOS，Swift 5.9 以降，Node.js 20 以降，npm，Google Chrome の検出に成功 |
 | Chrome サンドボックス | 一時プロファイルで =chromiumSandbox: true= の通常表示・ヘッドレス起動に成功．既存プロファイルでの自動取得は利用者環境で動作を確認 |
-| Info.plist検査 | 表示名，実行ファイル名，Bundle Identifier，version 3.3 の一致を確認 |
+| Info.plist検査 | 表示名，実行ファイル名，Bundle Identifier，version 3.4 の一致を確認 |
 | アプリ資材検査 | 必要モジュール・依存の存在を確認。プロファイル/Cookies/履歴/config/usageを含まないことをファイル名で確認 |
 | 署名検証 | codesign --verify --deep --strict 成功。アドホック署名であり身元証明・公証ではない |
 | 構文確認 | 3本のシェルスクリプトと収集・診断モジュールの構文検査成功 |
 | インストーラ停止確認 | 実行中のAllowanceMonitorを検出し、変更前に終了コード1で停止。インストール・アプリ起動なし |
-| ソース検査 | 許可リスト対象21ファイルで代表的な秘密情報パターンを検査し合格 |
+| ソース検査 | 許可リスト対象 25 ファイルで代表的な秘密情報パターンを検査し合格 |
 | 混入防止の異常系 | 作業用コピーで模擬Cookiesファイル、シンボリックリンク、模擬APIキーを別々に追加し、すべて拒否されることを確認。キー値は出力されない |
 
 テストには隔離したUserDefaultsのテスト用ドメインと模擬文字列を使用し、実アカウントへのアクセスはしていません。旧保存先の実際のファイル内容も読み取ったり複製したりしていません。
@@ -61,9 +63,9 @@
 許可リストと秘密情報のパターン検査は、未知の形式の秘密や将来追加されるファイルの安全性を証明しません。今後の共有前にも検査と目視確認が必要です。
 
 * 未検証事項
-- v3.3 は =dist/QuotaMeter.app= の生成，署名検証，=~/Applications/QuotaMeter.app= へのインストールと起動を確認済み．
+- v3.4 は =dist/QuotaMeter.app= の生成，署名検証，=~/Applications/QuotaMeter.app= へのインストールと起動を確認済み．
 - 通常の Chrome を使う初回設定で Google ログインに成功し，「ログイン完了」後に自動取得へ切り替わることは利用者報告．
-- v3.3 の起動時に案内・詳細画面，既存データの残量とグラフが表示されることを目視確認．ログイン中に Chrome の上へ表示する完了パネルは実画面で未確認．
+- v3.4 の通知設定画面は目視確認済み．macOS の通知許可，実際のしきい値・リセット通知，ntfy を使った iPhone 受信は未確認．
 - 実際の旧UserDefaultsドメインからの初回移行。移行ロジック自体は模擬ドメインで確認済み。
 - 新版の実起動時の旧アプリ検出表示と新版同士の二重起動ロック。インストーラによる実行中拒否は確認済み。
 - macOSログイン時の自動起動登録・承認と旧登録の解除。旧アプリ側でOFF、新版側で改めてONにする必要あり。
