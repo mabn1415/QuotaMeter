@@ -4,7 +4,6 @@ import ServiceManagement
 import Charts
 import Combine
 import Network
-import ApplicationServices
 import Darwin
 
 struct Limit: Codable { let remainingPercent: Double; let resetAt: Date? }
@@ -354,6 +353,50 @@ struct PopoverView: View {
     }
 }
 
+struct SetupGuideView: View {
+    @ObservedObject var monitor: Monitor
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            if monitor.setupMode {
+                Label("Chrome でログインしてください", systemImage: "person.crop.circle.badge.clock")
+                    .font(.title3.bold())
+                Text("ChatGPT へのログインが完了したら，この画面か Chrome の上に表示される案内から「ログイン完了」を選んでください．")
+                    .foregroundStyle(.secondary)
+                Button("ログイン完了") { monitor.finishSetup() }
+                    .buttonStyle(.borderedProminent)
+            } else if monitor.usage == nil {
+                Label("最初に ChatGPT へログインします", systemImage: "person.crop.circle.badge.plus")
+                    .font(.title3.bold())
+                VStack(alignment: .leading, spacing: 8) {
+                    Label("Chrome を開く", systemImage: "1.circle.fill")
+                    Label("ChatGPT にログイン", systemImage: "2.circle.fill")
+                    Label("QuotaMeter で「ログイン完了」を選択", systemImage: "3.circle.fill")
+                }
+                Button("Chrome を開いてログイン") { monitor.beginSetup() }
+                    .buttonStyle(.borderedProminent)
+                    .disabled(monitor.busy)
+            } else {
+                HStack {
+                    Label("自動取得の準備ができています", systemImage: "checkmark.circle.fill")
+                        .font(.title3.bold())
+                        .foregroundStyle(.green)
+                    Spacer()
+                    Button("ログインし直す") { monitor.beginSetup() }
+                        .disabled(monitor.busy)
+                }
+                Text("ウィンドウを閉じてもメニューバーで動作を続けます．残量は標準 3 分間隔で更新します．")
+                    .foregroundStyle(.secondary)
+            }
+            if let error = monitor.error {
+                Text(error).font(.caption).foregroundStyle(.red).textSelection(.enabled)
+            }
+        }
+        .padding(18)
+        .background(.blue.opacity(0.08), in: RoundedRectangle(cornerRadius: 16))
+    }
+}
+
 struct DashboardView: View {
     @ObservedObject var monitor: Monitor
     var body: some View {
@@ -367,6 +410,7 @@ struct DashboardView: View {
                     Spacer()
                     Button("今すぐ更新") { monitor.refresh() }.disabled(monitor.busy)
                 }
+                SetupGuideView(monitor: monitor)
                 HStack(alignment: .top, spacing: 14) {
                     LimitCard(title: "5時間の利用枠", limit: monitor.usage?.fiveHour, now: monitor.now)
                     LimitCard(title: "週間の利用枠", limit: monitor.usage?.weekly, now: monitor.now)
@@ -400,21 +444,6 @@ struct DashboardView: View {
                         .font(.caption).foregroundStyle(.secondary)
                     Text("メニューバーは5時間枠を表示（週間枠は詳細で確認）").foregroundStyle(.secondary)
                     Toggle("Macログイン時に自動起動", isOn: Binding(get: { monitor.launchAtLogin }, set: { monitor.updateLaunchAtLogin($0) }))
-                    Divider()
-                    if monitor.setupMode {
-                        HStack {
-                            Text("ログイン後に押すと，専用 Chrome を終了して自動取得を開始します")
-                                .font(.caption)
-                            Spacer()
-                            Button("ログイン完了") { monitor.finishSetup() }
-                                .buttonStyle(.borderedProminent)
-                        }
-                    } else {
-                        Button("通常のChromeで初期設定・再ログイン") { monitor.beginSetup() }.disabled(monitor.busy)
-                    }
-                    Text("初回設定ではPlaywrightを介さず通常のChromeを開きます。ログイン状態は専用Chromeプロファイルに保存され、通常の自動更新ではPlaywrightが同じプロファイルを再利用します。")
-                        .font(.caption).foregroundStyle(.secondary)
-                    if let error = monitor.error { Text(error).font(.caption).foregroundStyle(.red).textSelection(.enabled) }
                 }.padding(18).background(.primary.opacity(0.045), in: RoundedRectangle(cornerRadius: 16))
                 HStack {
                     Text("最終取得: \(monitor.usage?.fetchedAt.formatted() ?? "未取得")")
@@ -479,7 +508,7 @@ struct DashboardView: View {
         else { popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY) }
     }
 
-    private func showDashboard() {
+    func showDashboard() {
         popover.performClose(nil)
         if dashboard == nil {
             let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 740, height: 720),
@@ -493,6 +522,62 @@ struct DashboardView: View {
         }
         dashboard?.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
+    }
+}
+
+private struct SetupAssistantView: View {
+    @ObservedObject var monitor: Monitor
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("ChatGPT にログインできましたか？")
+                .font(.headline)
+            Text("ログイン後に完了を選ぶと，専用 Chrome を閉じて自動取得を開始します．")
+                .font(.callout)
+                .foregroundStyle(.secondary)
+            HStack {
+                Spacer()
+                Button("ログイン完了") { monitor.finishSetup() }
+                    .buttonStyle(.borderedProminent)
+            }
+        }
+        .padding(18)
+        .frame(width: 390)
+    }
+}
+
+@MainActor final class SetupAssistantController {
+    private let monitor: Monitor
+    private var panel: NSPanel?
+    private var subscription: AnyCancellable?
+
+    init(monitor: Monitor) {
+        self.monitor = monitor
+        subscription = monitor.$setupMode.removeDuplicates().sink { [weak self] active in
+            if active { self?.show() } else { self?.panel?.orderOut(nil) }
+        }
+    }
+
+    private func show() {
+        if panel == nil {
+            let panel = NSPanel(contentRect: NSRect(x: 0, y: 0, width: 390, height: 145),
+                                styleMask: [.titled, .utilityWindow],
+                                backing: .buffered, defer: false)
+            panel.title = "QuotaMeter — ログイン"
+            panel.level = .floating
+            panel.isFloatingPanel = true
+            panel.hidesOnDeactivate = false
+            panel.isReleasedWhenClosed = false
+            panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
+            panel.contentViewController = NSHostingController(rootView: SetupAssistantView(monitor: monitor))
+            self.panel = panel
+        }
+        if let panel, let screen = NSScreen.main {
+            let visible = screen.visibleFrame
+            panel.setFrameOrigin(NSPoint(x: visible.maxX - panel.frame.width - 24,
+                                         y: visible.maxY - panel.frame.height - 24))
+        }
+        panel?.orderFrontRegardless()
     }
 }
 
@@ -539,111 +624,10 @@ enum StatusGaugeImage {
     }
 }
 
-// CDP handles Chrome windows. AXIsProcessTrusted only observes permission;
-// this guide does not request or require Accessibility access.
-@MainActor final class OnboardingController: NSObject, NSWindowDelegate {
-    private var window: NSWindow?
-    private let completedKey = "onboardingV29Completed"
-
-    func showIfNeeded() {
-        guard !UserDefaults.standard.bool(forKey: completedKey) else { return }
-        show()
-    }
-
-    func show() {
-        if window == nil {
-            let panel = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 560, height: 475),
-                                 styleMask: [.titled, .closable, .miniaturizable],
-                                 backing: .buffered, defer: false)
-            panel.title = "QuotaMeter — 初回設定"
-            panel.center()
-            panel.isReleasedWhenClosed = false
-            panel.delegate = self
-            panel.contentViewController = NSHostingController(rootView: OnboardingView(
-                finish: { [weak self] in self?.finish() }
-            ))
-            window = panel
-        }
-        window?.makeKeyAndOrderFront(nil)
-        NSApp.activate(ignoringOtherApps: true)
-    }
-
-    private func finish() {
-        UserDefaults.standard.set(true, forKey: completedKey)
-        window?.orderOut(nil)
-    }
-
-    func windowWillClose(_ notification: Notification) {
-        // Closing the guide does not silently mark the permission as granted.
-        // The guide is shown again on the next launch until completed.
-    }
-}
-
-private struct OnboardingView: View {
-    let finish: () -> Void
-    @State private var accessibilityGranted = AXIsProcessTrusted()
-    @State private var message = ""
-    private let permissionPoll = Timer.publish(every: 2, on: .main, in: .common).autoconnect()
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 17) {
-            Text("QuotaMeter の初回設定")
-                .font(.title2.bold())
-            Text("Chromeの最小化にはChrome自身の操作機能を使います。通常、アクセシビリティ権限の追加は不要です。macOSから通知が出た場合だけ、要求元と内容を確認してください。")
-                .fixedSize(horizontal: false, vertical: true)
-            GroupBox("1. macOSのアクセス許可") {
-                VStack(alignment: .leading, spacing: 10) {
-                    Text("システム設定 → プライバシーとセキュリティ → アクセシビリティ")
-                        .font(.callout.weight(.medium))
-                    Text("この実装はアクセシビリティ権限を要求しません。以下は許可状態の確認用です。開始するためにオンにする必要はありません。")
-                        .font(.callout)
-                        .foregroundStyle(.secondary)
-                    HStack {
-                        Button("アクセシビリティ設定を開く") {
-                            let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility")!
-                            if !NSWorkspace.shared.open(url) {
-                                NSWorkspace.shared.open(URL(fileURLWithPath: "/System/Applications/System Settings.app"))
-                            }
-                        }
-                        Button("許可状態を再確認") {
-                            accessibilityGranted = AXIsProcessTrusted()
-                            message = accessibilityGranted ? "このアプリのアクセシビリティ許可を確認しました。" : "このアプリの許可は未確認です。設定直後は再起動が必要な場合があります。"
-                        }
-                    }
-                    Label(accessibilityGranted ? "QuotaMeter: 許可済み" : "QuotaMeter: 未許可または未確認",
-                          systemImage: accessibilityGranted ? "checkmark.circle.fill" : "info.circle")
-                        .foregroundStyle(accessibilityGranted ? Color.green : Color.secondary)
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(6)
-            }
-            GroupBox("2. 利用状況の取得") {
-                Text("メニューバーの QuotaMeter →「通常のChromeで初期設定・再ログイン」からログインしてください。ログイン後に「ログイン完了」を押すと、自動更新用Chromeが最小化して常駐します。")
-                    .font(.callout)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(6)
-            }
-            if !message.isEmpty { Text(message).font(.caption).foregroundStyle(.secondary) }
-            HStack {
-                Text("許可が不要な環境では、そのまま開始できます。")
-                    .font(.caption).foregroundStyle(.secondary)
-                Spacer()
-                Button("設定を完了して開始") { finish() }
-                    .buttonStyle(.borderedProminent)
-            }
-        }
-        .padding(24)
-        .frame(width: 560)
-        .onReceive(permissionPoll) { _ in
-            accessibilityGranted = AXIsProcessTrusted()
-        }
-    }
-}
-
 @MainActor final class AppLifecycle: NSObject, NSApplicationDelegate {
     private var monitor: Monitor?
     private var statusController: StatusBarController?
-    private var onboarding: OnboardingController?
+    private var setupAssistant: SetupAssistantController?
     private var instanceLock: Int32 = -1
 
     private func prepareLaunch() -> Bool {
@@ -676,14 +660,19 @@ private struct OnboardingView: View {
     }
     func applicationWillTerminate(_ notification: Notification) { monitor?.stopWorker() }
 
+    func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
+        statusController?.showDashboard()
+        return true
+    }
+
     func applicationDidFinishLaunching(_ notification: Notification) {
         guard prepareLaunch() else { NSApp.terminate(nil); return }
         let monitor = Monitor()
         self.monitor = monitor
-        statusController = StatusBarController(monitor: monitor)
-        let onboarding = OnboardingController()
-        self.onboarding = onboarding
-        onboarding.showIfNeeded()
+        let statusController = StatusBarController(monitor: monitor)
+        self.statusController = statusController
+        setupAssistant = SetupAssistantController(monitor: monitor)
+        statusController.showDashboard()
     }
 }
 
