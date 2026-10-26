@@ -4,266 +4,139 @@
 #+OPTIONS: toc:2 num:nil
 
 * 概要
-QuotaMeter は，ChatGPT の日本語の「使用状況」画面に表示される5時間枠・週間枠の残量を確認する，macOSのメニューバー常駐アプリです．
+QuotaMeter は，ChatGPT の日本語の「使用状況」画面から，5 時間枠・週間枠の残量を確認する macOS メニューバーアプリです．OpenAI の公式ツールではなく，承認・提携を受けていません．
 
-Swift / AppKit / SwiftUI のアプリが，Node.js / Playwright を介して専用
-プロファイルの Google Chrome を操作します．OpenAI API キーや非公開 API は
-使用しません，トークン数・API 料金・購入クレジットの残高を直接計測する
-アプリではありません．ChatGPT Work / Codex に関する利用枠でも，実際に
-読み取る対象はChrome上の使用状況画面です．Work や Codex のアプリ内部を直
-接読み取るものではありません．
+Swift の画面と Node.js / Playwright による Chrome 操作を組み合わせています．OpenAI API キーは使用せず，トークン数・API 料金・購入クレジットの残高は計測しません．
 
-QuotaMeter is an unofficial macOS menu bar application. It is not affiliated with, endorsed by, or sponsored by OpenAI.
+** 名称
+QuotaMeter と QuotaBar を比較し，利用枠を確認する用途が伝わる QuotaMeter を採用しました．旧名称は AllowanceMonitor です．同名製品や商標の網羅的な調査は未実施です．
 
-* 名称の選定
-| 候補       | 意味と特徴                         | 判断     |
-|------------+------------------------------------+----------|
-| QuotaMeter | 利用枠の残量を確認する用途が伝わる | 採用     |
-| QuotaBar   | メニューバー常駐という形態が伝わる | 最終候補 |
-| LimitMeter | 上限監視として分かりやすい         | 参考候補 |
-
-今回の名称は =QuotaMeter=，将来のリポジトリ名候補は =quota-meter= とします．OpenAI 製品名をアプリ名に含めず，画面上でも非公式であることを示します．第三者による同名利用，商標，ドメインやリポジトリ名の空き状況の網羅的調査はしていません．独占的に使用できることを保証する名称ではありません．
-
-| 項目                                | v3.0                                 | v3.1                          |
-|-------------------------------------+--------------------------------------+-------------------------------|
-| アプリ・Swift Package・実行ファイル | AllowanceMonitor                     | QuotaMeter                    |
-| Bundle Identifier                   | dev.allowance.monitor                | local.quotameter.app          |
-| インストール先                      | ~/Applications/AllowanceMonitor.app  | ~/Applications/QuotaMeter.app |
-| データ保存先                        | Application Support/AllowanceMonitor | 同じ場所を継続使用            |
-
-=local.quotameter.app= はローカル利用の識別子です．開発者のドメイン所有や OpenAI との関係を示すものではありません．
-
-* 機能
- - メニューバーに 5 時間枠の残量・10 目盛のゲージを表示
-   - 週間枠はポップオーバーと詳細画面に表示
- - 残量の履歴グラフ，概算リセット時刻，最終正常取得時刻を表示
- - 標準 3 分，設定で 1・2・3・5 分の更新間隔を選択
- - オフライン時は取得を休止し，接続復帰後に更新を試行
- - Chromeを通常表示で起動し，通常取得では最小化して常駐
-   - 取得に失敗すると一時的に復元して再試行する場合があります
- - 専用 Chrome で初回ログイン・再ログイン
+* 主な機能
+ - メニューバーに 5 時間枠の残量を表示し，詳細画面で週間枠・履歴・概算リセット時刻を確認
+ - 標準 3 分間隔で更新し，設定で 1・2・3・5 分から選択
+ - オフライン時は取得を休止し，接続復帰後に再試行
+ - 専用 Chrome のログイン状態を保持し，通常取得時は最小化して常駐
+ - Finder から起動し，必要に応じて Mac ログイン時の自動起動を設定
 
 * 必要環境
-- macOS 14以降。ビルドしたCPUアーキテクチャに対応するMac。
-- Swift 5.9以降を含むXcodeまたはCommand Line Tools。SwiftUI / AppKit / Charts / ServiceManagementを使用。
-- Node.js 20以降とnpm。
-- 通常のGoogle Chrome（Playwrightの =channel: 'chrome'= で起動）。Chromiumの別途ダウンロードは不要。
-- 5時間枠と週間枠の両方を日本語の「残り N%」で表示できるChatGPTアカウントとネット接続。
-- 依存導入時はnpm registryへの接続が必要。ローカルビルド・使用のためにApple Developer Programの加入は前提としていません。
+ - macOS 14 以降と，ビルド対象に対応する Mac
+ - Swift 5.9 以降を含む Xcode または Command Line Tools
+ - Node.js 20 以降，npm，Google Chrome
+ - 日本語の使用状況画面に両方の利用枠を表示できる ChatGPT アカウントとネット接続
 
-Finder起動時のNode検索先は次の3か所です。nvm/asdf等でのみインストールされているNodeは自動検出されません。
-#+begin_example
-/opt/homebrew/bin/node
-/usr/local/bin/node
-/usr/bin/node
-#+end_example
+Finder 起動時の Node.js 検索先は =/opt/homebrew/bin/node=，=/usr/local/bin/node=，=/usr/bin/node= です．nvm などでのみ導入した Node.js は自動検出されません．
 
-* ビルドとインストール
-** プロジェクトを開く
-配布ソースを任意のローカルフォルダに展開し、ターミナルでそのフォルダへ移動します。クラウド同期先は、後述のデータバックアップを置く場所としては推奨しません。
+* ビルド・インストール
+ソースを展開したフォルダで実行します．旧アプリを使用中の場合は，次節の切り替え手順を先に確認してください．
 
 #+begin_src sh
 cd /path/to/QuotaMeter
 ./scripts/install-deps.sh
-swift test
 ./scripts/build-app.sh
-#+end_src
-
-=install-deps.sh= はNodeバージョンを確認し、=collector/package-lock.json= の固定バージョンを =npm ci= で導入し、JavaScriptテストを実行します。npmへのアクセスと依存パッケージの実行を伴うため、lockfileを確認してから実行してください。
-
-=build-app.sh= はReleaseビルドし、=dist/QuotaMeter.app= を作成します。実行ファイル、必要な収集モジュール、package.json、node_modulesだけを新しい作業ディレクトリから組み立てます。Node本体とChromeは同梱しません。アドホック署名と署名整合性の確認を行います。Developer ID署名・公証は行いません。
-
-** AllowanceMonitor v3.0 から切り替える
-1. 旧アプリの「詳細・設定」で「Macログイン時に自動起動」をOFFにします。必要ならシステム設定 → 一般 → ログイン項目と機能拡張で旧項目も確認します。
-2. 旧アプリを終了します。初期設定用または常駐用の専用Chromeも終了したことを確認します。通常使っている別プロファイルのChromeを一律に終了させる必要はありません。
-3. 重要なデータは、終了後に次の方法でローカルの安全な場所へバックアップします。バックアップもログイン情報を含むため、他人に渡したりソースと一緒に公開しないでください。
-#+begin_src sh
-umask 077
-backup_dir="$HOME/Library/Application Support/QuotaMeter-private-backups/$(date +%Y%m%d-%H%M%S)"
-mkdir -p "$backup_dir"
-chmod 700 "$HOME/Library/Application Support/QuotaMeter-private-backups" "$backup_dir"
-ditto "$HOME/Library/Application Support/AllowanceMonitor" "$backup_dir/AllowanceMonitor"
-#+end_src
-4. 新版のプロジェクトフォルダでインストールします。
-#+begin_src sh
 ./scripts/install-app.sh
 #+end_src
-5. =~/Applications/QuotaMeter.app= が起動します。取得済み履歴と残量が表示されるか確認します。Chromeログインが失効していなければ再ログインは不要です。
-6. 必要なら新版の「詳細・設定」でログイン時の自動起動をONにします。Bundle Identifierが変わるため、旧登録の自動移行は行いません。
 
-インストーラは実行中の新旧アプリを検出すると処理を中止します。既存QuotaMeterを更新する場合は、コピー・署名検証が完了してから置き換え、旧版を =~/Applications/QuotaMeter.app.previous= に残します。すでにこのバックアップがある場合は上書きせず停止します。内容を確認し、必要なら別の場所に移動してから再実行してください。AllowanceMonitor.appおよびそのデータは削除しません。
+=install-deps.sh= は lockfile に従って依存を導入し，JavaScript テストを実行します．=build-app.sh= は =dist/QuotaMeter.app= を作成し，アドホック署名を検証します．=install-app.sh= は =~/Applications/QuotaMeter.app= に配置して起動します．Node.js 本体と Chrome は同梱しません．
 
-** 引き継ぐデータと設定
-- Chromeプロファイル、=config.json=、=usage.json=、=history.jsonl= は移動・コピー・変換せず、旧保存先をそのまま使います。旧アプリ側へ戻す場合にも同じ形式です。
-- UserDefaultsの旧ドメイン =dev.allowance.monitor= から =intervalMinutes=、=displayWeekly=、=onboardingV29Completed= の3キーだけを、新ドメイン =local.quotameter.app= の未設定キーへ取り込みます。
-- 取り込み済みマーカー =quotaMeterLegacyPreferencesImported= を記録し、2回目以降は旧設定で新設定を上書きしません。
-- =displayWeekly= は互換用に保持しますが、現行UIではメニューバーに5時間枠を常に表示します。
-- アクセシビリティ等のOS許可、署名への信頼、ログイン項目登録は別管理です。旧Bundle Identifierの許可が移ることは保証しません。
-- Chromeの認証情報にはmacOS Keychain等への依存があるため、別ユーザー・別Macへのコピーでのログイン継続は保証しません。
+** AllowanceMonitor v3.0 から切り替える
+ 1. 旧アプリの「Mac ログイン時に自動起動」を OFF にし，旧アプリと専用 Chrome を終了
+ 2. 必要に応じて，後述のデータフォルダを安全なローカルの場所へバックアップ
+ 3. 新版フォルダで =./scripts/install-app.sh= を実行し，残量・履歴・取得時刻を確認
+ 4. 必要なら新版でログイン時の自動起動を ON にする
 
-* 初回設定
-1. アプリ起動後、初回案内を確認し「設定を完了して開始」を押します。これはブラウザへのログイン完了を意味しません。
-2. メニューバーのゲージを押し「詳細・設定」→「Chromeで初期設定・再ログイン」を押します。
-3. 開いた専用ChromeでChatGPTにログインし、設定 → 使用状況で5時間枠と週間枠の両方を表示します。パスワードや二段階認証コードをREADME、ターミナル、問い合わせに貼り付けないでください。
-4. 収集処理が約2秒間隔、最大約5分で表示テキストを確認します。両枠を検出すると設定と初回値を保存して専用Chromeを閉じ、常駐ワーカーに切り替えます。
-5. メニューバーに残量、詳細画面に取得時刻が表示されたことを確認します。失敗した場合はエラーを確認し、再度初期設定を実行します。
+Chrome プロファイルと履歴は旧保存先をそのまま使い，移動・複製しません．更新間隔・表示設定・初回案内の完了状態は，旧設定から初回のみ取り込みます．ログイン項目と OS の許可は自動移行しません．
 
-通常のChromeでログイン済みでも、専用プロファイルでは別途ログインが必要です。普段のChromeプロファイルをソースへコピーしたり、保存先として指定したりしないでください。
+インストーラは新旧アプリの実行中に停止します．既存の QuotaMeter は =~/Applications/QuotaMeter.app.previous= に退避し，その退避先が既にある場合も停止します．旧アプリと実データは削除しません．新旧アプリや手動収集を同時に実行しないでください．
 
-Chromeの最小化はChrome DevTools Protocol（CDP）で行います。この実装はSystem EventsやAppleScriptを使用せず、アクセシビリティ権限を要求しません。案内画面の許可状態確認は =AXIsProcessTrusted()= による参照だけです。動かないことを理由に広い権限を一律に付与しないでください。
+* 初回設定・通常起動
+ 1. アプリの初回案内で「設定を完了して開始」を選択
+ 2. メニューバー →「詳細・設定」→「Chrome で初期設定・再ログイン」を選択
+ 3. 専用 Chrome で ChatGPT にログインし，設定 → 使用状況で両方の利用枠を表示
+ 4. 最大約 5 分以内に検出され，メニューバーに残量と取得時刻が表示されることを確認
 
-* 通常起動と終了
-- 初期設定後はFinderで =~/Applications/QuotaMeter.app= をダブルクリックします。通常はターミナル不要です。
-- Dockに通常のメインウィンドウを出さず、メニューバーに常駐します。アイコン →「詳細・設定」で履歴・設定を開きます。
-- 手動取得は「今すぐ更新」。設定画面を閉じても常駐は続きます。終了は「詳細・設定」→「終了」。
-- 「Macログイン時に自動起動」はServiceManagementの =SMAppService.mainApp= で登録・解除します。macOS側の承認が必要な場合はログイン項目の設定も確認します。
-- =--%= は未取得、=!= はオフライン・古い値・取得失敗などを示します。残量は最後に正常取得した値で、エラー時に0%へ置き換えません。
-- 旧アプリを検出した場合、新版は注意を表示して終了します。新版同士はファイルロックで二重起動を防止します。ただし旧版を後から起動する動作や、手動の収集コマンドまでは防げません。同時実行しないでください。
+以後は Finder で =~/Applications/QuotaMeter.app= をダブルクリックします．通常はターミナル不要です．手動更新は「今すぐ更新」，終了は「詳細・設定」→「終了」から行います．自動起動は詳細画面で設定し，必要なら macOS のログイン項目でも承認します．
+
+通常の Chrome とは別プロファイルのため，初回ログインが必要です．Chrome の最小化には CDP を使い，この実装はアクセシビリティ権限を要求しません．
 
 * 実装フロー
-** Swift側の常駐と更新
 #+begin_example
-Finder / macOSログイン項目
-  → AppKit NSApplication（accessory / LSUIElement）
-  → 旧アプリの起動確認 → 保存先準備・二重起動ロック → 旧設定の限定取り込み
-  → Monitor（ObservableObject）とメニューバー、SwiftUI詳細画面
-  → NWPathMonitorで接続状態確認
-  → Node.js collector.mjs --daemon を子プロセスとして起動
-  → worker-command.json に UUID と refresh を保存
-  → Nodeワーカーが結果を保存
-  → Swiftが15秒ごとに応答・最新値・履歴を再読込して表示
+Finder / ログイン項目
+  → Swift / AppKit がメニューバーに常駐し，SwiftUI で詳細を表示
+  → Node.js の常駐ワーカーへ JSON ファイルで更新を指示
+  → Playwright が専用プロファイルの Google Chrome を起動・再利用
+  → 使用状況画面の表示テキストから日本語の残量・相対時間を解析
+  → 最新値・履歴・応答を保存し，Swift が読み込んで表示
 #+end_example
 
-Swiftの15秒タイマーは設定した1〜5分の取得間隔が経過したかを判定します。したがって設定間隔ぴったりの実行ではなく、通常最大約15秒の判定遅れ等があります。要求に対応するUUIDの応答を照合し、約110秒で取得待ちをタイムアウトします。ネットワーク経路がオンラインでもChatGPTへの到達やログイン成功を保証しません。
+Swift は 15 秒ごとに応答と更新時期を確認します．Chrome は通常表示で起動後に最小化し，失敗時には復元・再接続を試みます．内部・非公開 API や，アプリ独自の HTTP サーバーは使いません．取得に失敗した場合は，最後の正常値と取得時刻を保持します．
 
-** Node.js / Playwright / Chrome側
-#+begin_example
---daemon: 約500msごとにworker-command.jsonを確認
-  → refresh要求
-  → Playwright chromium.launchPersistentContext(chrome-profile)
-      channel=chrome / headless=false / locale=ja-JP
-  → 前回から継続するChromeを再利用（閉じられていれば再起動を試行）
-  → chatgpt.comへ移動、必要なら再読込・設定/使用状況ボタンを探索
-  → body.innerTextの表示テキストを読む
-  → parser.mjsで日本語見出し・残り%・リセットまでの時間を解析
-  → usage.jsonを一時ファイルからrename、history.jsonlへ追記
-  → worker-response.jsonと診断結果を保存
-#+end_example
+* 保存先
+名称変更後も，次の場所を継続使用します．
 
-両枠を検出できた場合のみ新しい取得値を保存します。日本語の相対時間から算出するリセット日時は概算です。生のページ本文、スクリーンショット、パスワード、Cookieの値を収集結果ファイルへ書き出す実装はありません。ただしChrome自身はページ情報や認証情報をプロファイルに保存します。
-
-Swiftとの連携はローカルファイルで、アプリ独自のHTTPサーバーは開きません。Chromeの自動操作にはPlaywright/CDPを使います。Chromeはブラウザとしてネットワーク通信します。アプリ終了時はワーカーへSIGTERMを送りますが、実行中のページ操作等によりChromeの終了に時間がかかる場合があります。
-
-** 開発用コマンド
-通常利用では不要です。アプリと専用Chromeを終了してから実行します。
-#+begin_src sh
-cd collector
-npm run setup   # 表示したChromeで手動ログイン、両枠の検出を待つ
-npm run once    # 1回取得（ログイン済みプロファイルを使用）
-# ウィンドウ表示で取得を調べる場合
-QUOTAMETER_CHROME_MODE=visible npm run once
-#+end_src
-
-旧環境変数 =ALLOWANCE_MONITOR_CHROME_MODE= も互換用に読みます。両方指定した場合は =QUOTAMETER_CHROME_MODE= を優先します。Finderからの通常起動はシェルで設定した環境変数を引き継ぐとは限りません。
-
-* ローカルデータ保存先
-アプリ名変更後も、次の場所を使用します。プロジェクト直下ではありません。
 #+begin_example
 ~/Library/Application Support/AllowanceMonitor/
 #+end_example
 
-| ファイル・フォルダ | 内容と注意 |
-|-------------------+------------|
-| chrome-profile/ | Chromeの専用ユーザーデータ。Cookie、認証情報、キャッシュ、ブラウザ履歴等。最重要の機密領域 |
-| config.json | 使用状況画面のURL。設定保存時はhttps://chatgpt.comのURLに限定。旧ファイルのURLにパスやクエリが含まれる可能性あり |
-| usage.json | 最後の正常取得日時・取得元・各枠の残量と概算リセット日時 |
-| history.jsonl | 成功取得ごとの利用枠情報。自動削除なし。画面は末尾1500行を対象にするが、読込時にはファイル全体を読む |
-| collector-diagnostics.json | 最後の成功・失敗、理由コード、エラー概要、ウィンドウ状態等 |
-| worker-command.json / worker-response.json | UUID、更新指示、成功/失敗応答。認証トークンではない |
-| worker-state.json | ワーカーPID、開始日時、状態。異常終了時は古い状態が残る場合あり |
-| quotameter.lock | 新版アプリの排他ロック用。存在だけで実行中とは判断しない |
-| *.tmp / worker-command.tmp | 一時書込みファイル。異常終了時に残る可能性あり |
+| ファイル・フォルダ | 内容 |
+|-------------------+------|
+| chrome-profile/ | 認証情報・Cookie・キャッシュ・ブラウザ履歴などの機密データ |
+| config.json | 使用状況画面の URL |
+| usage.json / history.jsonl | 最新の取得値・取得履歴 |
+| collector-diagnostics.json | 最後の診断結果 |
+| worker-*.json / quotameter.lock | ワーカーとの連携・新版の二重起動防止 |
 
-表示設定・案内完了状態は =UserDefaults= の =local.quotameter.app= ドメインで管理します。通常は =~/Library/Preferences/local.quotameter.app.plist= 相当ですが、OSのキャッシュもあるため実行中に直接編集しないでください。旧ドメインは読み取りだけで削除しません。自動起動登録はmacOSが別途管理します。
+表示設定は UserDefaults の =local.quotameter.app= ドメインで管理し，旧ドメイン =dev.allowance.monitor= は削除しません．履歴の自動削除はありません．不要な =history.jsonl= はアプリと専用 Chrome の終了後に削除できます．
 
-プロジェクト側の生成物は =.build/=、=.swiftpm/=、=collector/node_modules/=、=dist/= です。これらは公開用ソースから除外します。
+* セキュリティ・プライバシー
+ - 専用 Chrome はログイン済みアカウントを操作できるため，ソースと依存を信頼できる場合だけ実行
+ - プロファイル・履歴・診断・バックアップを公開せず，共有やクラウド同期にも注意
+ - 保存先は権限 700，新規 Node.js ファイルは umask 077，Swift の指示ファイルは権限 600 で保護するが，同一ユーザーや管理者のアクセスは防げない
+ - 診断中の URL・ホームパスは伏字にするが，完全な匿名化ではないため共有前に確認
+ - アプリ独自の広告・解析・外部テレメトリはないが，Chrome は ChatGPT や認証サービスなどへ，依存導入時は npm へ通信
+ - 生のページ本文やスクリーンショットを収集結果として保存しないが，Chrome 自身は認証・閲覧情報を保存
+ - アプリ独自の暗号化や App Sandbox による隔離はなく，FileVault や画面ロックも併用
 
-* セキュリティ上のリスクと対策
-| リスク | 今回の対策 | 残る注意 |
-|--------+------------+----------|
-| Chromeプロファイル流出 | 保存先をソース外で維持。プロファイルの移動・公開をしない | バックアップ、共有ユーザー、同期サービス、マルウェアからの漏洩は別途対策が必要 |
-| 他ローカルユーザーの読取り | 保存先ディレクトリを700、新規Nodeファイルをumask 077、Swiftの指示ファイルを600にする | 同一ユーザーや管理者は読取り可能。既存プロファイル内部は再帰的に権限変更しない |
-| 診断情報からの漏洩 | 新しい診断のURLはトップページだけを記録。エラーメッセージ内のHTTP URLとホームパスを伏せ800文字に制限 | 完全な匿名化ではない。旧診断・設定やChromeの内部記録は自動消去しない。共有前に目視確認 |
-| 新旧アプリや手動取得の競合 | 新版の旧アプリ検出・新版同士のファイルロック・インストーラの実行確認 | 旧版や手動コマンドは新ロックを認識しない。専用Chromeの終了を待つ |
-| 依存パッケージの供給網リスク | package-lock.jsonとnpm ciでバージョンを固定 | 固定は安全性の保証ではない。更新時のレビューとnpm auditが必要 |
-| 過剰なOS権限 | 自動操作はCDP。アクセシビリティを必須扱いしない | macOSや外部ツールが別途示す権限は要求元を確認 |
-| ソースへの混入 | .gitignoreに加え、共有対象を許可リストで検査 | ignoreは暗号化・削除・検出保証ではない。生成物を含むフォルダ全体をZIPにしない |
-| 未公証アプリへの信頼 | ローカルでビルドしアドホック署名の整合性を検査 | 開発者の身元・公証を証明しない。OS保護を一律に無効にしない |
+アプリの削除だけでは実データは消えません．使用をやめる場合は自動起動を OFF にして終了後，必要に応じて保存先・設定・機密バックアップを削除してください．保存先を削除すると，旧アプリのログイン状態と履歴も失われます．
 
-専用プロファイルでログインしたブラウザを操作できるため、収集処理はアカウントへアクセスできる強い権限を持ちます。ソースと依存を信頼できる場合だけ実行してください。このアプリはApp Sandboxで隔離されておらず、OSログ・クラッシュレポート等にも絶対に情報が残らないとは保証できません。FileVault、Macの画面ロック、適切なバックアップ管理も利用してください。
+* 利用規約・公開時の注意
+表示テキストの自動取得には，OpenAI の利用規約にある自動・プログラムによるデータ抽出の禁止条項に関する懸念があります．適用契約と許諾を確認できない場合は，自動取得の使用・配布を保留してください．名称変更や低頻度の取得によって規約適合が保証されるわけではありません．
 
-* プライバシーと削除
-- アプリ独自の広告・解析・外部テレメトリ・開発者サーバーへの送信機能はありません。
-- ChromeはChatGPT、認証サービス、Chrome自身が必要とする宛先へ通信します。依存導入・監査ではnpmへ接続します。完全オフラインのツールではありません。
-- アプリにパスワードを入力する専用機能はありません。Chromeでログインするため、Cookie等はChromeの保存仕様・OSの保護に依存します。アプリ独自の暗号化はありません。
-- 利用枠履歴から利用時間帯・利用頻度を推測できる場合があります。不要な履歴は、アプリと専用Chromeを終了後に =history.jsonl= を削除します。次回成功時に作り直されます。
-- 完全に使用をやめる場合は、ログイン時自動起動をOFF → アプリと専用Chromeを終了 → アプリを削除 → 保存先、旧/新のUserDefaults、機密バックアップを必要に応じて削除します。同じ保存先を使う旧アプリのログイン・履歴も失われます。
-- アプリ本体を削除しただけでは保存先は削除されません。ローカル削除はOpenAI側のアカウントやデータの削除とは異なります。漏洩が疑われる場合はサービス側のセッション管理も確認してください。
+ - [[https://openai.com/policies/terms-of-use/][OpenAI Terms of Use]]
+ - [[https://openai.com/policies/][OpenAI Terms & Policies]]
+ - [[https://openai.com/brand/][OpenAI Brand Guidelines]]
 
-* 利用規約・非公式ツールとしての注意
-2026-10-26に確認した公式資料：
-- [[https://openai.com/policies/terms-of-use/][OpenAI Terms of Use]]
-- [[https://openai.com/policies/][OpenAI Terms & Policies（適用契約の確認）]]
-- [[https://openai.com/brand/][OpenAI Brand Guidelines]]
+上記は 2026-10-26 に確認した資料です．組織アカウントでは別契約や組織の方針も確認してください．本プロジェクトのライセンスは未設定です．公開・再配布前に権利関係と配布条件を確認する必要があります．
 
-個人向けTerms of Useは、データやOutputの自動・プログラムによる抽出を禁止する条項を含みます。本アプリは表示テキストを自動取得するため、この条項に関する懸念があります。公開APIを使わないこと、低頻度であること、画面を読むだけであることは、許諾や規約適合の根拠にはなりません。組織アカウントでは別の契約・組織ポリシーが適用される場合もあります。適用契約と必要な許諾を確認し、確認できない場合は自動取得の使用・配布を保留してください。規約への適合や公開・配布の可否を保証するプロジェクトではありません。
+共有前に次を実行し，=--list= に出るソースだけを共有してください．=.gitignore= だけでは混入を防ぎきれません．検査は代表的な秘密情報パターンと許可リストによるもので，検出を保証しません．
 
-この整備作業では、実アカウントへの自動アクセス、新しいログイン、Gitリポジトリ作成、コミット、push、Public公開は実施していません。ソースの整備と、その機能の実行・配布の判断は別です。
-
-QuotaMeterはOpenAIの承認・提携を受けていません。ChatGPT、Codex等の名称は説明対象を示すために使用します。OpenAIのロゴや公式アプリに似せたブランド表示は使用しません。名称変更によって取得方法の規約上の懸念が解消されるわけではありません。
-
-* 公開対象の検査
 #+begin_src sh
 node scripts/audit-source.mjs
 node scripts/audit-source.mjs --list
 #+end_src
 
-検査は共有対象を =Package.swift=、README等、既知のSwiftソース・テスト、収集モジュール・テスト・package/lock、既知のスクリプトに限定します。許可対象外ファイルやシンボリックリンク、代表的な秘密鍵・APIキー・Bearer/JWTパターンがあれば失敗し、値自体は表示しません。=.build/=、=.swiftpm/=、=dist/=、=collector/node_modules/=、=.git/= は検査対象外です。検査合格はそれらの中身の安全性を保証しません。
+=.build/=，=.swiftpm/=，=dist/=，=collector/node_modules/=，=.git/= は検査対象外です．フォルダ全体を公開せず，生成物や Chrome プロファイルを共有対象に含めないでください．今回，Git の作成・コミット・push・公開は行っていません．
 
-共有用ZIPは =--list= のファイルだけから作成してください。生成物やプロファイルを含むフォルダ全体を渡さないでください。今後Git管理を始める際も、既に追跡済みのファイルは.gitignoreで除外されないため、実際の追加対象を別途確認する必要があります。今回Git操作は行っていません。
+* 制限事項・トラブルシューティング
+ - 日本語の見出しと「残り N%」の両枠表示が必要で，画面変更や別プランでは取得できない場合がある
+ - 残量は定期取得した参考値で，リセット時刻は概算．即時性や課金上の正確性は保証しない
+ - Chrome が一時的に前面へ出る場合があり，履歴が大きくなると読込みや描画が重くなる
+ - Developer ID 署名・公証は未実施で，Intel Mac や別 OS での動作も未検証
 
-* 制限事項
-- 日本語見出しと「残り N%」の表示に依存します。英語UI、別プラン、表示形式の変更、新しい利用枠には対応を保証しません。
-- 5時間枠と週間枠の両方が必要です。一方だけの場合、パーサーが一部を読めても収集は成功扱いになりません。
-- ChatGPTの画面変更・ログアウト・追加認証・ネットワーク・Chrome更新で停止する場合があります。CAPTCHA等を回避する機能はありません。
-- 残量は実際の画面にある値の定期取得で、即時性・課金上の正確性・別モデルや別サービスの網羅性を保証しません。
-- 履歴は自動ローテーションしません。大きい履歴は読込み・描画やディスク使用量に影響します。
-- 新旧アプリの同時使用・同じプロファイルへの手動接続は非対応。切り替え時は専用Chromeの終了を待ってください。
-- ヘッドレス化していないためChromeが一時的に前面表示される場合があります。
-- 通常起動にはNodeとChromeのインストール状態が継続して必要です。単体の完全自己完結アプリではありません。
-- Universal Binary、Developer ID署名、公証、App Store配布、別Mac・別OSバージョンの動作は今回未検証です。
+| 症状 | 対処 |
+|------+------|
+| Node.js が見つからない | 「必要環境」に記載した検索先を確認 |
+| 取得モジュールが見つからない | 依存導入後に再ビルド・再インストール |
+| CHROME_LAUNCH_FAILED | Google Chrome のインストールと通常起動を確認 |
+| PROFILE_BUSY | 旧アプリ・手動収集・専用 Chrome を終了して待つ．使用中にロックファイルを削除しない |
+| LOGIN_REQUIRED | 詳細画面から専用 Chrome で再ログイン |
+| USAGE_NOT_FOUND | 日本語の使用状況画面で両枠を表示し，画面構成の変更も確認 |
+| タイムアウト・古い値・! 表示 | 接続・ログイン・最終取得時刻を確認し，再更新 |
+| 旧版が自動起動する | 旧ログイン項目を OFF にし，新版で改めて登録 |
+| インストールが停止する | 新旧アプリの実行状態と既存の .previous を確認 |
 
-* トラブルシューティング
-| 症状・理由コード | 確認と対処 |
-|------------------+------------|
-| Node.jsが見つからない | Finder用の検索先3か所に実行可能なNodeがあるか確認。シェルだけで使えるnvm等とは異なる |
-| 取得モジュールが見つからない | 依存導入後にbuild-app.shで.appを作り、install-app.shで配置。swift runだけではリソースが付かない |
-| CHROME_LAUNCH_FAILED | 通常のGoogle Chromeのインストール、起動可否を確認。Playwrightの既定Chromiumを入れる手順ではない |
-| PROFILE_BUSY | 旧アプリ、手動収集、専用Chromeを終了して待つ。Chrome使用中にSingleton等のロックファイルを削除しない |
-| LOGIN_REQUIRED | 詳細・設定の初期設定ボタンから専用Chromeで再ログイン。2段階認証等は手動で行う |
-| USAGE_NOT_FOUND | 日本語の使用状況で両枠と「残り%」を表示。設定・利用状況ボタンの文言やUI変更も確認 |
-| COLLECTOR_CODE_ERROR | 収集コードの実行時エラー。改変箇所や同梱モジュールを確認し再ビルド |
-| Chromeが前面に出る/最小化しない | CDP最小化の失敗時や再試行の復元で発生する場合あり。アクセシビリティを一律に許可して解決する設計ではない |
-| 取得タイムアウト | ネット接続とログイン、専用Chromeの競合を確認。次回更新を待つかアプリを再起動 |
-| !や古い情報が残る | 直近の正常値を保持する仕様。最終取得時刻とエラーを確認 |
-| 起動すると終了する | 旧アプリ検出時は旧版を終了。新版が既に動作中なら既存のメニューバーを確認 |
-| 自動起動しない/旧版が起動する | 旧ログイン項目をOFF、新版を固定のインストール先から起動して登録。macOS側の承認も確認 |
-| インストールが停止する | 新旧アプリが実行中でないか、QuotaMeter.app.previousが既存でないか確認。元のアプリを確認せず削除しない |
-| Gatekeeperが警告する | ローカルでソースを確認してビルドしたものか確認。公証済み配布ではない。OS全体の保護を無効化しない |
+問い合わせには理由コードと操作手順を添え，プロファイルや設定・履歴全体を添付しないでください．
 
-問い合わせ時は理由コードと実行した手順を中心に伝え、プロファイル、認証情報、history/config全体を添付しないでください。診断の自動伏字後でも個人情報が残っていないか確認してください。
-
-* 検証
+* 開発・検証
 #+begin_src sh
 cd collector
 npm test
@@ -271,11 +144,7 @@ npm audit --omit=dev
 cd ..
 swift test
 ./scripts/build-app.sh
-codesign --verify --deep --strict dist/QuotaMeter.app
 node scripts/audit-source.mjs
 #+end_src
 
-実施結果と未検証事項は [[file:VERIFICATION.org][VERIFICATION.org]] を参照してください。ビルドや模擬データによるテストは、実際のアカウント取得・Chromeログイン継続・画面表示・Macログイン時の動作を証明しません。
-
-* ライセンス
-プロジェクト自体のライセンスは未設定です。公開・再配布前に権利関係と希望する条件を確認してLICENSEを決定してください。依存パッケージのライセンスは各パッケージを確認します。Playwright関連のApache-2.0表示は依存パッケージ側にあります。今回、独断でライセンスを付与する作業はしていません。
+ビルド・テスト結果と未検証事項は [[file:VERIFICATION.org][VERIFICATION.org]] を参照してください．実アカウントでの取得・ログイン継続・実画面・ログイン時の自動起動は今回未検証です．
