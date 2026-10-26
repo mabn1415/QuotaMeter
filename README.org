@@ -4,38 +4,44 @@
 #+OPTIONS: toc:2 num:nil
 
 * 概要
-QuotaMeter は、ChatGPT の日本語の「使用状況」画面に表示される5時間枠・週間枠の残量を確認する、macOSのメニューバー常駐アプリです。AllowanceMonitor v3.0 を基に名称と説明・保護策を整備しました。
+QuotaMeter は，ChatGPT の日本語の「使用状況」画面に表示される5時間枠・週間枠の残量を確認する，macOSのメニューバー常駐アプリです．
 
-Swift / AppKit / SwiftUI のアプリが、Node.js / Playwright を介して専用プロファイルの Google Chrome を操作します。OpenAI APIキーや非公開APIは使用しません。トークン数・API料金・購入クレジットの残高を直接計測するアプリではありません。ChatGPT Work / Codex に関する利用枠でも、実際に読み取る対象はChrome上の使用状況画面です。WorkやCodexのアプリ内部を直接読み取るものではありません。
+Swift / AppKit / SwiftUI のアプリが，Node.js / Playwright を介して専用
+プロファイルの Google Chrome を操作します．OpenAI API キーや非公開 API は
+使用しません，トークン数・API 料金・購入クレジットの残高を直接計測する
+アプリではありません．ChatGPT Work / Codex に関する利用枠でも，実際に
+読み取る対象はChrome上の使用状況画面です．Work や Codex のアプリ内部を直
+接読み取るものではありません．
 
 QuotaMeter is an unofficial macOS menu bar application. It is not affiliated with, endorsed by, or sponsored by OpenAI.
 
 * 名称の選定
-| 候補 | 意味と特徴 | 判断 |
-|------+------------+------|
-| QuotaMeter | 利用枠の残量を確認する用途が伝わる | 採用 |
-| QuotaBar | メニューバー常駐という形態が伝わる | 最終候補 |
-| LimitMeter | 上限監視として分かりやすい | 参考候補 |
+| 候補       | 意味と特徴                         | 判断     |
+|------------+------------------------------------+----------|
+| QuotaMeter | 利用枠の残量を確認する用途が伝わる | 採用     |
+| QuotaBar   | メニューバー常駐という形態が伝わる | 最終候補 |
+| LimitMeter | 上限監視として分かりやすい         | 参考候補 |
 
-今回の名称は =QuotaMeter=、将来のリポジトリ名候補は =quota-meter= とします。OpenAI製品名をアプリ名に含めず、画面上でも非公式であることを示します。第三者による同名利用、商標、ドメインやリポジトリ名の空き状況の網羅的調査はしていません。独占的に使用できることを保証する名称ではありません。
+今回の名称は =QuotaMeter=，将来のリポジトリ名候補は =quota-meter= とします．OpenAI 製品名をアプリ名に含めず，画面上でも非公式であることを示します．第三者による同名利用，商標，ドメインやリポジトリ名の空き状況の網羅的調査はしていません．独占的に使用できることを保証する名称ではありません．
 
-| 項目 | v3.0 | v3.1 |
-|------+-------+------|
-| アプリ・Swift Package・実行ファイル | AllowanceMonitor | QuotaMeter |
-| Bundle Identifier | dev.allowance.monitor | local.quotameter.app |
-| インストール先 | ~/Applications/AllowanceMonitor.app | ~/Applications/QuotaMeter.app |
-| データ保存先 | Application Support/AllowanceMonitor | 同じ場所を継続使用 |
+| 項目                                | v3.0                                 | v3.1                          |
+|-------------------------------------+--------------------------------------+-------------------------------|
+| アプリ・Swift Package・実行ファイル | AllowanceMonitor                     | QuotaMeter                    |
+| Bundle Identifier                   | dev.allowance.monitor                | local.quotameter.app          |
+| インストール先                      | ~/Applications/AllowanceMonitor.app  | ~/Applications/QuotaMeter.app |
+| データ保存先                        | Application Support/AllowanceMonitor | 同じ場所を継続使用            |
 
-=local.quotameter.app= はローカル利用の識別子です。開発者のドメイン所有やOpenAIとの関係を示すものではありません。
+=local.quotameter.app= はローカル利用の識別子です．開発者のドメイン所有や OpenAI との関係を示すものではありません．
 
 * 機能
-- メニューバーに5時間枠の残量・10目盛のゲージを表示。週間枠はポップオーバーと詳細画面に表示。
-- 残量の履歴グラフ、概算リセット時刻、最終正常取得時刻を表示。
-- 標準3分、設定で1・2・3・5分の更新間隔を選択。
-- オフライン時は取得を休止し、接続復帰後に更新を試行。
-- Chromeを通常表示で起動し、通常取得では最小化して常駐。取得に失敗すると一時的に復元して再試行する場合があります。
-- 専用Chromeで初回ログイン・再ログイン。Finder起動、任意のMacログイン時自動起動。
-- 旧アプリの設定を初回のみ、既知のキーに限定して取り込み。履歴・Chromeログインは同じ保存先を再利用。
+ - メニューバーに 5 時間枠の残量・10 目盛のゲージを表示
+   - 週間枠はポップオーバーと詳細画面に表示
+ - 残量の履歴グラフ，概算リセット時刻，最終正常取得時刻を表示
+ - 標準 3 分，設定で 1・2・3・5 分の更新間隔を選択
+ - オフライン時は取得を休止し，接続復帰後に更新を試行
+ - Chromeを通常表示で起動し，通常取得では最小化して常駐
+   - 取得に失敗すると一時的に復元して再試行する場合があります
+ - 専用 Chrome で初回ログイン・再ログイン
 
 * 必要環境
 - macOS 14以降。ビルドしたCPUアーキテクチャに対応するMac。
