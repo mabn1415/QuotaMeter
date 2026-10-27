@@ -638,6 +638,8 @@ struct DashboardView: View {
     private let popover = NSPopover()
     private var dashboard: NSWindow?
     private var subscriptions = Set<AnyCancellable>()
+    private var globalClickMonitor: Any?
+    private var localClickMonitor: Any?
 
     init(monitor: Monitor) {
         self.monitor = monitor
@@ -650,10 +652,32 @@ struct DashboardView: View {
         statusItem.button?.target = self
         statusItem.button?.action = #selector(togglePopover)
         statusItem.button?.sendAction(on: [.leftMouseUp])
+        globalClickMonitor = NSEvent.addGlobalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown]) { [weak self] _ in
+            Task { @MainActor [weak self] in self?.closePopover() }
+        }
+        localClickMonitor = NSEvent.addLocalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown]) { [weak self] event in
+            guard let self, self.popover.isShown else { return event }
+            let clickedWindow = event.window
+            let popoverWindow = self.popover.contentViewController?.view.window
+            let statusWindow = self.statusItem.button?.window
+            if clickedWindow !== popoverWindow && clickedWindow !== statusWindow {
+                self.closePopover()
+            }
+            return event
+        }
         monitor.objectWillChange.sink { [weak self] _ in
             DispatchQueue.main.async { [weak self] in self?.updateStatus() }
         }.store(in: &subscriptions)
         updateStatus()
+    }
+
+    deinit {
+        if let globalClickMonitor { NSEvent.removeMonitor(globalClickMonitor) }
+        if let localClickMonitor { NSEvent.removeMonitor(localClickMonitor) }
+    }
+
+    private func closePopover() {
+        if popover.isShown { popover.performClose(nil) }
     }
 
     private func updateStatus() {
@@ -683,7 +707,7 @@ struct DashboardView: View {
     }
 
     func showDashboard() {
-        popover.performClose(nil)
+        closePopover()
         if dashboard == nil {
             let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 740, height: 720),
                                   styleMask: [.titled, .closable, .miniaturizable, .resizable],

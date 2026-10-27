@@ -1,5 +1,5 @@
 #+TITLE: QuotaMeter
-#+SUBTITLE: 非公式 macOS 利用枠モニター — v3.6
+#+SUBTITLE: 非公式 macOS 利用枠モニター — v3.7
 #+LANGUAGE: ja
 #+OPTIONS: toc:2 num:nil
 
@@ -66,6 +66,7 @@ open "$HOME/Applications/QuotaMeter.app"
 #+end_src
 
  - 起動すると案内・詳細画面を表示し，同時にメニューバーへ残量ゲージを表示
+ - メニューバーのポップアップは，外側をクリックすると自動的に閉じる
  - 画面を閉じてもメニューバーで動作を継続
  - 閉じた画面はゲージ →「詳細・設定」，または Finder でアプリを再度開くと表示
  - 「今すぐ更新」で手動取得し，「終了」でアプリを終了
