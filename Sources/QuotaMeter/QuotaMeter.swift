@@ -597,8 +597,23 @@ struct DashboardView: View {
                             Button("コピー") { monitor.copyNtfyTopic() }
                             Button("テスト") { monitor.sendTestNotification() }
                         }
-                        Text("iPhone の ntfy アプリで同じトピックを購読してください．推測されにくい 16 文字以上の名前を使用します．")
-                            .font(.caption).foregroundStyle(.secondary)
+                        VStack(alignment: .leading, spacing: 5) {
+                            HStack {
+                                Text("iPhone 側の設定").font(.caption.bold())
+                                Spacer()
+                                Link("App Store で ntfy を開く",
+                                     destination: URL(string: "https://apps.apple.com/app/ntfy/id1625396347")!)
+                            }
+                            Text("1．iPhone に ntfy を入れ，通知を許可")
+                            Text("2．上の「自動作成」→「コピー」で通知先をコピー")
+                            Text("3．ntfy の「＋」→「Subscribe to topic」で通知先を貼り付けて購読")
+                            Text("4．QuotaMeter に戻り，「iPhone にも通知」を ON →「テスト」")
+                            Text("通知先は推測されにくい名前を使用し，他人と共有しないでください．")
+                                .foregroundStyle(.secondary)
+                        }
+                        .font(.caption)
+                        .padding(10)
+                        .background(.primary.opacity(0.04), in: RoundedRectangle(cornerRadius: 10))
                         if let status = monitor.notificationStatus {
                             Text(status).font(.caption).foregroundStyle(.secondary)
                         }

@@ -1,5 +1,5 @@
 #+TITLE: QuotaMeter
-#+SUBTITLE: 非公式 macOS 利用枠モニター — v3.5
+#+SUBTITLE: 非公式 macOS 利用枠モニター — v3.6
 #+LANGUAGE: ja
 #+OPTIONS: toc:2 num:nil
 
@@ -78,9 +78,9 @@ open "$HOME/Applications/QuotaMeter.app"
 
 iPhone でも受け取る場合は，App Store から ntfy を導入し，次の順に設定します．
 
- 1. QuotaMeter で通知先の「自動作成」を選択
- 2. iPhone の ntfy で，同じ文字列のトピックを購読
- 3. QuotaMeter の「コピー」で通知先をコピーし，iPhone 側の購読名と一致することを確認
+ 1. iPhone に ntfy を導入し，通知を許可
+ 2. QuotaMeter で通知先の「自動作成」→「コピー」を選択
+ 3. iPhone の ntfy で「＋」→「Subscribe to topic」を選び，コピーした通知先を貼り付けて購読
  4. QuotaMeter の「iPhone にも通知」を ON にして「テスト」を選択
 
 「ntfy が通知を受け付けました」と表示されても iPhone に届かない場合は，iPhone 側の購読名・通知許可・集中モードを確認してください．ntfy は外部サービスです．通知には利用枠の種類・残量・リセット時刻が含まれます．公開サーバーのトピックは URL を知る人が購読できるため，自動作成した推測されにくい文字列を使用し，共有しないでください．
