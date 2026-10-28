@@ -1,10 +1,14 @@
 import { chromium } from 'playwright';
-import { chmod, mkdir, readFile, writeFile, rename, appendFile } from 'node:fs/promises';
+import { spawn } from 'node:child_process';
+import { chmod, mkdir, readFile, writeFile, rename, appendFile, rm } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { parseUsage } from './parser.mjs';
 import { diagnosticMessage } from './privacy.mjs';
-import { openManualChrome } from './manual-setup.mjs';
+import {
+  chromeDebugPortPath, chromeExecutable, chooseChromeDebugPort,
+  manualChromeArguments, openManualChrome
+} from './manual-setup.mjs';
 
 // New files are private; keep the v3.0 profile path without copying credentials.
 process.umask(0o077);
@@ -17,10 +21,12 @@ const diagnosticsPath = join(base, 'collector-diagnostics.json');
 const setup = process.argv.includes('--setup');
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
 let context;
+let browser;
 let page;
 let windowController;
 let windowMode = 'visible';
 const requestedMode = (process.env.QUOTAMETER_CHROME_MODE ?? process.env.ALLOWANCE_MONITOR_CHROME_MODE) === 'visible' ? 'visible' : 'minimized';
+const devToolsPortPath = chromeDebugPortPath(profile);
 
 // Keep a real, headed Chrome session. Minimize its window using Chrome's
 // DevTools Protocol instead of switching to headless (which failed in v2.5).
@@ -186,15 +192,40 @@ async function writeJSON(path, value) {
   await writeFile(tmp, JSON.stringify(value, null, 2));
   await rename(tmp, path);
 }
-async function launchChrome() {
-  context = await chromium.launchPersistentContext(profile, {
-    channel: 'chrome',
-    headless: false,
-    chromiumSandbox: true,
-    viewport: { width: 1400, height: 950 },
-    locale: 'ja-JP'
+async function connectToOrdinaryChrome() {
+  const text = await readFile(devToolsPortPath, 'utf8');
+  const port = Number(text.split(/\r?\n/, 1)[0]);
+  if (!Number.isInteger(port) || port < 1024 || port > 65535) throw new Error('Chrome の接続ポートが不正です。');
+  return chromium.connectOverCDP(`http://127.0.0.1:${port}`, {
+    timeout: 5000,
+    isLocal: true,
+    noDefaults: true
   });
-  context.on('close', () => { context = undefined; page = undefined; windowController = undefined; });
+}
+async function openOrdinaryChrome() {
+  await rm(devToolsPortPath, { force: true });
+  const debugPort = await chooseChromeDebugPort(profile);
+  const child = spawn(chromeExecutable, manualChromeArguments(profile, initialUrl, debugPort), {
+    stdio: 'ignore',
+    detached: true
+  });
+  child.unref();
+  const deadline = Date.now() + 15000;
+  let lastError;
+  while (Date.now() < deadline) {
+    try { return await connectToOrdinaryChrome(); }
+    catch (error) { lastError = error; await sleep(250); }
+  }
+  throw new Error(`通常の Chrome への接続に失敗しました: ${diagnosticMessage(lastError)}`);
+}
+async function launchChrome() {
+  try { browser = await connectToOrdinaryChrome(); }
+  catch { browser = await openOrdinaryChrome(); }
+  context = browser.contexts()[0];
+  if (!context) throw new Error('通常の Chrome のブラウザーコンテキストが見つかりません。');
+  browser.on('disconnected', () => {
+    browser = undefined; context = undefined; page = undefined; windowController = undefined;
+  });
   page = context.pages()[0] || await context.newPage();
   await page.goto(initialUrl, { waitUntil: 'domcontentloaded', timeout: 45000 });
   await minimizeChrome(page);
@@ -205,7 +236,7 @@ async function ensureChrome() {
       if (!page || page.isClosed()) page = context.pages().find(p => !p.isClosed()) || await context.newPage();
       await page.evaluate(() => document.readyState, { timeout: 5000 });
       return;
-    } catch { await context.close().catch(() => {}); context = undefined; page = undefined; }
+    } catch { await browser?.close().catch(() => {}); browser = undefined; context = undefined; page = undefined; }
   }
   await launchChrome();
 }
@@ -259,7 +290,7 @@ async function runDaemon() {
     }
     await sleep(500);
   }
-  await context?.close().catch(() => {});
+  await browser?.close().catch(() => {});
   await writeJSON(workerStatePath, { pid: process.pid, state: 'stopped', at: new Date().toISOString() });
 }
 
@@ -285,5 +316,5 @@ try {
   await recordFailure(error);
   process.exitCode = 1;
 } finally {
-  if (!daemon) await context?.close().catch(() => {});
+  if (!daemon) await browser?.close().catch(() => {});
 }

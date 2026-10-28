@@ -64,8 +64,8 @@ cat > "$APP/Contents/Info.plist" <<'PLIST'
 <key>CFBundlePackageType</key><string>APPL</string>
 <key>CFBundleIconFile</key><string>AppIcon</string>
 <key>NSHumanReadableCopyright</key><string>Copyright (c) 2026 mabn1415. GPL-3.0-only.</string>
-<key>CFBundleVersion</key><string>37</string>
-<key>CFBundleShortVersionString</key><string>3.7</string>
+<key>CFBundleVersion</key><string>38</string>
+<key>CFBundleShortVersionString</key><string>3.8</string>
 <key>LSMinimumSystemVersion</key><string>14.0</string>
 <key>LSUIElement</key><true/>
 <key>NSHighResolutionCapable</key><true/>
